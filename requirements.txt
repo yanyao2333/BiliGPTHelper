@@ -1,0 +1,6 @@
+bilibili-api-python
+loguru
+openai
+APScheduler
+openai-whisper
+pytest
