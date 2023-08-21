@@ -4,6 +4,7 @@ def parse_prompt(prompt_template, **kwargs):
         prompt_template = prompt_template.replace(f"[{key}]", str(value))
     return prompt_template
 
+
 def build_messages(user_msg, system_msg=None):
     """构建消息
     :param user_msg: 用户消息

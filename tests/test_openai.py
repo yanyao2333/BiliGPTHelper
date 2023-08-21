@@ -4,8 +4,7 @@ import pytest
 
 @pytest.fixture(scope="module")
 def openai_gpt_client():
-    openai = OpenAIGPTClient("mk-0fNJ9BxvtXJNQYBtsC3Q6sg9J3k12cdEsnCBQdAaDkqSrosq",
-                             endpoint="https://api.aiproxy.io/v1")
+    openai = OpenAIGPTClient("", endpoint="")
     prompt = build_messages("你好", "你好")
     answer, tokens = openai.completion(prompt)
     return answer, tokens

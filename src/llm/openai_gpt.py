@@ -22,7 +22,9 @@ class OpenAIGPTClient(LLMBase):
     def get_openai(self):
         return self.openai
 
-    def completion(self, prompt, model="gpt-3.5-turbo", **kwargs) -> Tuple[str, int] | None:
+    def completion(
+        self, prompt, model="gpt-3.5-turbo", **kwargs
+    ) -> Tuple[str, int] | None:
         """调用openai的Completion API
         :param model: 模型名称
         :param prompt: 输入的文本（请确保格式化为openai的prompt格式）
@@ -32,20 +34,23 @@ class OpenAIGPTClient(LLMBase):
         try:
             self.set_openai()
             resp = self.openai.ChatCompletion.create(
-                model=model,
-                messages=prompt,
-                **kwargs
+                model=model, messages=prompt, **kwargs
             )
             _LOGGER.info(
-                f"调用openai的Completion API成功，本次调用中，prompt+response的长度为{resp['usage']['total_tokens']}")
-            return resp["choices"][0]["message"]["content"], resp['usage']['total_tokens']
+                f"调用openai的Completion API成功，本次调用中，prompt+response的长度为{resp['usage']['total_tokens']}"
+            )
+            return (
+                resp["choices"][0]["message"]["content"],
+                resp["usage"]["total_tokens"],
+            )
         except Exception as e:
             _LOGGER.trace(f"调用openai的Completion API失败：{e}")
             return None
 
     @staticmethod
-    def use_template(template_user_name: Templates, template_system_name: Templates = None,
-                     **kwargs) -> list | None:
+    def use_template(
+        template_user_name: Templates, template_system_name: Templates = None, **kwargs
+    ) -> list | None:
         """使用模板生成最终prompt
         :param template_user_name: 用户模板名称
         :param template_system_name: 系统模板名称
@@ -56,8 +61,14 @@ class OpenAIGPTClient(LLMBase):
             template_user = template_user_name.value
             template_system = template_system_name.value
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = parse_prompt(template_system, **kwargs) if template_system else None
-            prompt = build_messages(utemplate, stemplate) if stemplate else build_messages(utemplate)
+            stemplate = (
+                parse_prompt(template_system, **kwargs) if template_system else None
+            )
+            prompt = (
+                build_messages(utemplate, stemplate)
+                if stemplate
+                else build_messages(utemplate)
+            )
             _LOGGER.info(f"使用模板成功，生成的prompt为：{prompt}")
             return prompt
         except Exception as e:

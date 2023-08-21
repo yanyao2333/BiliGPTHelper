@@ -12,7 +12,6 @@ class Cache:
         self.cache = {}
         self.load_cache()
 
-
     def load_cache(self):
         """加载缓存"""
         try:

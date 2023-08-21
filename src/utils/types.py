@@ -31,5 +31,6 @@ class AtItems(TypedDict):
 
 class AtAPIResponse(TypedDict):
     """API返回的at消息"""
+
     cursor: AtCursor
     items: List[AtItems]

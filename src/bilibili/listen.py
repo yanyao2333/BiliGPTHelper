@@ -18,8 +18,8 @@ _LOGGER = LOGGER
 class Listen:
     def __init__(self, credential, queue_manager: QueueManager):
         self.credential = credential
-        self.summarize_queue = queue_manager.get_queue('summarize')
-        self.evaluate_queue = queue_manager.get_queue('evaluate')
+        self.summarize_queue = queue_manager.get_queue("summarize")
+        self.evaluate_queue = queue_manager.get_queue("evaluate")
         self.last_at_time = int(time.time())  # 当前时间作为初始时间戳
         self.sched = AsyncIOScheduler(timezone="Asia/Shanghai")
 
@@ -27,15 +27,18 @@ class Listen:
         data: AtAPIResponse = await session.get_at(self.credential)
 
         # 判断是否有新消息
-        if self.last_at_time >= data['items'][0]['at_time']:
+        if self.last_at_time >= data["items"][0]["at_time"]:
             _LOGGER.debug(
-                f"last_at_time{self.last_at_time}大于或等于当前最新消息的at_time{data['items'][0]['at_time']}，返回")
+                f"last_at_time{self.last_at_time}大于或等于当前最新消息的at_time{data['items'][0]['at_time']}，返回"
+            )
             return
 
         new_items = []
-        for item in reversed(data['items']):
-            if item['at_time'] > self.last_at_time:
-                _LOGGER.debug(f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列")
+        for item in reversed(data["items"]):
+            if item["at_time"] > self.last_at_time:
+                _LOGGER.debug(
+                    f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列"
+                )
                 new_items.append(item)
         if len(new_items) == 0:
             _LOGGER.debug(f"没有新消息，返回")
@@ -44,10 +47,10 @@ class Listen:
         for item in new_items:
             await self.dispatch_task(item)
 
-        self.last_at_time = data['items'][0]['at_time']
+        self.last_at_time = data["items"][0]["at_time"]
 
     async def dispatch_task(self, data: AtItems):
-        content = data['item']['source_content']
+        content = data["item"]["source_content"]
         _LOGGER.info(f"检测到at消息，内容为：{content}")
         for keyword in summarize_keyword:
             if keyword in content:
@@ -64,11 +67,11 @@ class Listen:
     def start_listening(self):
         self.sched.add_job(
             self.listen_at,
-            trigger='interval',
+            trigger="interval",
             seconds=20,
-            id='listen_at',
+            id="listen_at",
             max_instances=3,
-            next_run_time=datetime.now()
+            next_run_time=datetime.now(),
         )
         self.sched.start()
         _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")

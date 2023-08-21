@@ -2,7 +2,9 @@ from bilibili_api import video, Credential, parse_link
 
 
 class BiliVideo:
-    def __init__(self, credential: Credential, bvid: str = None, aid: int = None, url: str = None):
+    def __init__(
+        self, credential: Credential, bvid: str = None, aid: int = None, url: str = None
+    ):
         """
         三选一，优先级为url > aid > bvid
         :param credential:
