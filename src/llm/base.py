@@ -21,8 +21,9 @@ class LLMBase:
         """
         pass
 
+    @staticmethod
     @abc.abstractmethod
-    def use_template(self, template_user_name: Templates, template_system_name: Templates, **kwargs) -> list | None:
+    def use_template(template_user_name: Templates, template_system_name: Templates, **kwargs) -> list | None:
         """使用模板生成最终prompt（可能需要根据llm需求的prompt格式不同修改）
         :param template_user_name: 用户模板名称
         :param template_system_name: 系统模板名称

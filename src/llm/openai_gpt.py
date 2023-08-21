@@ -43,7 +43,8 @@ class OpenAIGPTClient(LLMBase):
             _LOGGER.trace(f"调用openai的Completion API失败：{e}")
             return None
 
-    def use_template(self, template_user_name: Templates, template_system_name: Templates = None,
+    @staticmethod
+    def use_template(template_user_name: Templates, template_system_name: Templates = None,
                      **kwargs) -> list | None:
         """使用模板生成最终prompt
         :param template_user_name: 用户模板名称

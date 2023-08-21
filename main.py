@@ -1,6 +1,6 @@
 import json
 
-from src.bilibili.credential import BiliCredential
+from src.bilibili.bili_credential import BiliCredential
 from src.utils.logging import LOGGER
 from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.queue_manager import QueueManager
