@@ -108,40 +108,54 @@ class BiliComment:
     async def _start_comment(self):
         """发送评论"""
         while True:
-            try:
-                data: AtItems = await self.comment_queue.get()
-                _LOGGER.debug(f"获取到新的评论任务，开始处理")
-                video_obj, _type = await BiliVideo(credential=self.credential, url=data["item"]["url"]).get_video_obj()
-                if not video_obj:
-                    _LOGGER.warning(f"视频{data['item']['url']}不存在")
-                    return False
-                if _type != ResourceType.VIDEO:
-                    _LOGGER.warning(f"视频{data['item']['url']}不是视频，跳过处理")
-                    return False
-                video_obj: video.Video
-                aid = video_obj.get_aid()
-                if str(aid).startswith("av"):
-                    aid = aid[2:]
-                oid = int(aid)
-                root = data["item"]["source_id"]
-                text = BiliComment.build_reply_content(data["item"]["ai_response"])
-                resp = await comment.send_comment(
-                    oid=oid,
-                    credential=self.credential,
-                    text=text,
-                    type_=comment.CommentResourceType.VIDEO,
-                    root=root,
-                )
-                if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
-                    _LOGGER.debug(f"发送评论成功，休息30秒")
-                    await asyncio.sleep(30)
-                    continue
-                else:
-                    _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
-                    raise RiskControlFindError
-            except RiskControlFindError:
-                await asyncio.sleep(60)
-                continue
-            except asyncio.CancelledError:
-                _LOGGER.info("摘要处理链关闭")
-                raise asyncio.CancelledError
+            risk_control_count = 0
+            data = None
+            while risk_control_count < 3:
+                try:
+                    if data is None:
+                        data: AtItems = await self.comment_queue.get()
+                        _LOGGER.debug(f"获取到新的评论任务，开始处理")
+                    _LOGGER.debug(f"继续处理上一次失败的评论任务")
+                    video_obj, _type = await BiliVideo(credential=self.credential, url=data["item"]["url"]).get_video_obj()
+                    if not video_obj:
+                        _LOGGER.warning(f"视频{data['item']['url']}不存在")
+                        return False
+                    if _type != ResourceType.VIDEO:
+                        _LOGGER.warning(f"视频{data['item']['url']}不是视频，跳过处理")
+                        return False
+                    video_obj: video.Video
+                    aid = video_obj.get_aid()
+                    if str(aid).startswith("av"):
+                        aid = aid[2:]
+                    oid = int(aid)
+                    root = data["item"]["source_id"]
+                    text = BiliComment.build_reply_content(data["item"]["ai_response"])
+                    resp = await comment.send_comment(
+                        oid=oid,
+                        credential=self.credential,
+                        text=text,
+                        type_=comment.CommentResourceType.VIDEO,
+                        root=root,
+                    )
+                    if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
+                        _LOGGER.debug(f"发送评论成功，休息30秒")
+                        await asyncio.sleep(30)
+                        break  # 评论成功，退出当前任务的重试循环
+                    else:
+                        _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
+                        risk_control_count += 1
+                        if risk_control_count >= 3:
+                            _LOGGER.warning(f"连续3次风控，跳过当前任务处理下一个")
+                            data = None
+                            break
+                        else:
+                            raise RiskControlFindError
+                except RiskControlFindError:
+                    _LOGGER.warning(f"遇到风控，等待60秒后重试当前任务")
+                    await asyncio.sleep(60)
+                except asyncio.CancelledError:
+                    _LOGGER.info("摘要处理链关闭")
+                    raise asyncio.CancelledError
+
+            if risk_control_count >= 3:
+                risk_control_count = 0
