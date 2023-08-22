@@ -11,6 +11,7 @@ class QueueManager:
         self.queues = {
             "summarize": asyncio.Queue(),
             "evaluate": asyncio.Queue(),
+            "reply": asyncio.Queue(),
         }
 
     def get_queue(self, queue_name: str):

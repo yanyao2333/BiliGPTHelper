@@ -1,4 +1,5 @@
-from src.llm.openai_gpt import OpenAIGPTClient, build_messages
+from src.llm.openai_gpt import OpenAIGPTClient
+from src.utils.parse_prompt import build_messages
 import pytest
 
 

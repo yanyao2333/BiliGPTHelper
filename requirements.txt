@@ -4,3 +4,4 @@ openai
 APScheduler
 openai-whisper
 pytest
+httpx

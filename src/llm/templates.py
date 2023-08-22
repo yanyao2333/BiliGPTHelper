@@ -8,10 +8,10 @@ SUMMARIZE_SYSTEM_PROMPT = (
 
 
 SUMMARIZE_USER_TEMPLATE = (
-    f"标题：[title]\n简介：[description]\n字幕：[subtitle]\n标签：[tags]\n评论：[comments]"
+    f"标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"
 )
 
-RETRY_TEMPLATE = f"请你把我下面提供的这段文字转换成这样的json格式并返回给我，不需要加任何其他东西：\n\nJSON格式：{SUMMARIZE_JSON_RESPONSE}\n\n输入消息：[input]"
+RETRY_TEMPLATE = f"请你把我下面提供的这段文字转换成这样的json格式并返回给我，不需要加任何其他东西，如果summary不存在，那么noneed即为true。除了summary的其他几个字段不存在均可忽略，对应值留空，noneed依旧为false：\n\nJSON格式：{SUMMARIZE_JSON_RESPONSE}\n\n输入消息：[input]"
 
 AFTER_PROCESS_SUBTITLE = (
     "下面是使用语音转文字得到的字幕，你需要修复其中的语法错误、名词错误、如果是繁体中文就转为简体中文：\n\n[subtitle]"

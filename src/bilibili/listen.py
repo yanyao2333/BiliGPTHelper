@@ -1,18 +1,21 @@
 """侦听at消息和私聊转发视频消息"""
 
 import asyncio
+import sys
 import time
 from datetime import datetime, timedelta
 
 from bilibili_api import session, Credential
-from src.utils.logging import LOGGER
+from src.utils.logging import LOGGER, custom_format
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.utils.types import *
 from src.constants import summarize_keyword, evaluate_keyword
 
 from src.utils.queue_manager import QueueManager
 
-_LOGGER = LOGGER
+
+_LOGGER = LOGGER.bind(name="bilibili-listener")
+_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class Listen:
@@ -74,7 +77,7 @@ class Listen:
             next_run_time=datetime.now(),
         )
         self.sched.start()
-        _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
+        _LOGGER.info("侦听at消息定时任务注册成功， 每20秒检查一次")
 
     @staticmethod
     def build_credential(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value):

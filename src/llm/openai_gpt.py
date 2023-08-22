@@ -1,12 +1,14 @@
+import sys
+
 import openai
-from src.utils.logging import LOGGER
+from src.utils.logging import LOGGER, custom_format
 from src.llm.base import LLMBase
 from typing import Tuple
 from src.llm.templates import Templates
 from src.utils.parse_prompt import parse_prompt, build_messages
 
 _LOGGER = LOGGER.bind(name="openai_gpt")
-
+_LOGGER.add(sys.stdout, format=custom_format)
 
 class OpenAIGPTClient(LLMBase):
     def __init__(self, api_key, endpoint="https://api.openai.com/v1"):

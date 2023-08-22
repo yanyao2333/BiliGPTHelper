@@ -1,12 +1,14 @@
 """llm对接的基础类"""
 import abc
+import sys
 from typing import Tuple
 
 from src.llm.templates import Templates
 from src.utils.parse_prompt import parse_prompt, build_messages
-from src.utils.logging import LOGGER
+from src.utils.logging import LOGGER, custom_format
 
 _LOGGER = LOGGER.bind(name="llm_base")
+_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class LLMBase:

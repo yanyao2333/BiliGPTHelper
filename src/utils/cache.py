@@ -1,9 +1,13 @@
 """管理视频处理后缓存"""
 import json
 import os
-from src.utils.logging import LOGGER
+import sys
+
+from src.utils.logging import LOGGER, custom_format
 
 _LOGGER = LOGGER.bind(name="cache")
+_LOGGER.add(sys.stdout, format=custom_format)
+
 
 
 class Cache:

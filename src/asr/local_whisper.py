@@ -1,10 +1,14 @@
+import sys
+
 import whisper as whi
-from src.utils.logging import LOGGER
+from src.utils.logging import LOGGER, custom_format
 import time
 from src.llm.templates import Templates
 from src.llm.openai_gpt import OpenAIGPTClient
 
-_LOGGER = LOGGER.bind(name="asr")
+
+_LOGGER = LOGGER.bind(name="Whisper")
+_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class Whisper:
@@ -33,14 +37,14 @@ class Whisper:
         :return: 字幕文本
         """
         begin_time = time.perf_counter()
-        _LOGGER.info(f"[Whisper]开始转写 {audio_path}")
+        _LOGGER.info(f"开始转写 {audio_path}")
         model = whi.load_model(model_size, device=device)
-        _LOGGER.debug(f"[Whisper]模型加载成功，开始转写")
+        _LOGGER.debug(f"模型加载成功，开始转写")
         result = whi.transcribe(
             model, audio_path, initial_prompt=prompt
         )  # TODO 存在各种包括但不限于标点丢失、简繁中转换，语气词丢失等问题，后期尝试使用llm后处理
         text = result["text"]
-        _LOGGER.debug(f"[Whisper]转写成功")
+        _LOGGER.debug(f"转写成功")
         if after_process:
             if openai_api_key:
                 openai = OpenAIGPTClient(
@@ -54,10 +58,10 @@ class Whisper:
                 )
                 answer, _ = openai.completion(prompt)
                 time_elapsed = time.perf_counter() - begin_time
-                _LOGGER.info(f"[whisper]字幕转译+后处理完成，共用时{time_elapsed}s")
+                _LOGGER.info(f"字幕转译+后处理完成，共用时{time_elapsed}s")
                 return answer
             else:
                 _LOGGER.warning("没有提供openai api key，停止进行后处理，返回原值！")
         time_elapsed = time.perf_counter() - begin_time
-        _LOGGER.info(f"[whisper]字幕转译完成，共用时{time_elapsed}s")
+        _LOGGER.info(f"字幕转译完成，共用时{time_elapsed}s")
         return text

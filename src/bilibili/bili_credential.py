@@ -1,10 +1,13 @@
+import sys
 from datetime import datetime
 
 from bilibili_api import Credential
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from src.utils.logging import LOGGER
+from src.utils.logging import LOGGER, custom_format
+
 
 _LOGGER = LOGGER.bind(name="bilibili-credential")
+_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class BiliCredential(Credential):
