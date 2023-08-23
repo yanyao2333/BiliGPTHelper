@@ -1,4 +1,5 @@
 import asyncio
+
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER
@@ -12,6 +13,7 @@ class QueueManager:
             "summarize": asyncio.Queue(),
             "evaluate": asyncio.Queue(),
             "reply": asyncio.Queue(),
+            "private": asyncio.Queue(),
         }
 
     def get_queue(self, queue_name: str):

@@ -5,6 +5,7 @@ import yaml
 from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
+from src.bilibili.bili_session import BiliSession
 from src.bilibili.listen import Listen
 from src.chain.summarize import SummarizeChain
 from src.utils.cache import Cache
@@ -82,7 +83,8 @@ async def start_pipeline():
     # 启动侦听器
     _LOGGER.info("正在启动at侦听器")
     listen.start_listening()
-
+    _LOGGER.info("启动私信侦听器")
+    await listen.listen_private()
     # 启动cookie过期检查和刷新
     _LOGGER.info("正在启动cookie过期检查和刷新")
     credential.start_check()
@@ -96,8 +98,13 @@ async def start_pipeline():
     comment = BiliComment(queue_manager.get_queue("reply"), credential)
     comment_task = asyncio.create_task(comment.start_comment())
 
+    # 启动私信
+    _LOGGER.info("正在启动私信处理链")
+    private = BiliSession(credential, queue_manager.get_queue("private"))
+    private_task = asyncio.create_task(private.start_private_reply())
+
     # await asyncio.gather(summarize_task, comment_task)
-    _LOGGER.info("摘要处理链和评论处理链启动完成")
+    _LOGGER.info("摘要处理链、评论处理链、私信处理链启动完成")
 
     # _LOGGER.info("正在启动摘要处理链和评论处理链")
     # await summarize_chain.start_chain()

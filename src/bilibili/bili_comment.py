@@ -117,10 +117,11 @@ class BiliComment:
             data = None
             while risk_control_count < 3:
                 try:
+                    if data is not None:
+                        _LOGGER.debug(f"继续处理上一次失败的评论任务")
                     if data is None:
                         data: AtItems = await self.comment_queue.get()
                         _LOGGER.debug(f"获取到新的评论任务，开始处理")
-                    _LOGGER.debug(f"继续处理上一次失败的评论任务")
                     video_obj, _type = await BiliVideo(credential=self.credential,
                                                        url=data["item"]["uri"]).get_video_obj()
                     if not video_obj:

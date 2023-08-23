@@ -37,6 +37,7 @@ class SummarizeChain:
     ):
         self.summarize_queue = queue_manager.get_queue("summarize")
         self.reply_queue = queue_manager.get_queue("reply")
+        self.private_queue = queue_manager.get_queue("private")
         self.value_manager = value_manager
         self.api_key = self.value_manager.get_variable("api-key")
         self.api_base = self.value_manager.get_variable("api-base")
@@ -110,8 +111,10 @@ class SummarizeChain:
                 at_items: AtItems = await self.summarize_queue.get()
                 # _LOGGER.debug(at_items)
                 _LOGGER.info(f"摘要处理链获取到新任务了：{at_items['item']['uri']}")
-                if at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
-                    _LOGGER.warning(f"该消息类型不受支持，跳过处理")
+                if at_items["item"]["type"] == "private_msg" and at_items["item"]["business_id"] == 114:
+                    _LOGGER.debug(f"该消息是私信消息，继续处理")
+                elif at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
+                    _LOGGER.warning(f"该消息目前并不支持，跳过处理")
                     continue
                 if at_items["item"]["root_id"] != 0 or at_items["item"]["target_id"] != 0:
                     _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理") # TODO 楼中楼消息的处理
@@ -177,7 +180,7 @@ class SummarizeChain:
                     (
                         ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
                         .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
-                        .run()
+                        .run(overwrite_output=True)
                     )
                     _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
                     # 使用whisper转写音频
@@ -239,13 +242,24 @@ class SummarizeChain:
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
-                            _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
-                            reply_data = copy.deepcopy(at_items)
-                            reply_data["item"]["ai_response"] = resp
-                            await self.reply_queue.put(reply_data)
-                            _LOGGER.debug(f"结果加入发送队列成功")
-                            self.cache.set_cache(key=video_info["bvid"], value=reply_data)
-                            _LOGGER.debug(f"设置缓存成功")
+                            if at_items["item"]["type"] == "private_msg" and at_items["item"]["business_id"] == 114:
+                                _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
+                                reply_data = copy.deepcopy(at_items)
+                                reply_data["item"]["ai_response"] = resp
+                                await self.private_queue.put(reply_data)
+                                _LOGGER.debug(f"结果加入私信处理队列成功")
+                                reply_data["item"]["private_msg_event"]["content"] = \
+                                reply_data["item"]["private_msg_event"]["content"].get_bvid()
+                                self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                                _LOGGER.debug(f"设置缓存成功")
+                            else:
+                                _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
+                                reply_data = copy.deepcopy(at_items)
+                                reply_data["item"]["ai_response"] = resp
+                                self.reply_queue.put(reply_data)
+                                _LOGGER.debug(f"结果加入发送队列成功")
+                                self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                                _LOGGER.debug(f"设置缓存成功")
                     except Exception as e:
                         _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                         traceback.print_tb(e.__traceback__)
@@ -281,12 +295,23 @@ class SummarizeChain:
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
-                    _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
-                    reply_data = copy.deepcopy(at_item)
-                    reply_data["item"]["ai_response"] = resp
-                    self.reply_queue.put(reply_data)
-                    _LOGGER.debug(f"结果加入发送队列成功")
-                    self.cache.set_cache(key=video_info["bvid"], value=reply_data)
-                    _LOGGER.debug(f"设置缓存成功")
+                    if at_item["item"]["type"] == "private_msg" and at_item["item"]["business_id"] == 114:
+                        _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
+                        reply_data = copy.deepcopy(at_item)
+                        reply_data["item"]["ai_response"] = resp
+                        await self.private_queue.put(reply_data)
+                        _LOGGER.debug(f"结果加入私信处理队列成功")
+                        reply_data["item"]["private_msg_event"]["content"] = reply_data["item"]["private_msg_event"][
+                            "content"].get_bvid()
+                        self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                        _LOGGER.debug(f"设置缓存成功")
+                    else:
+                        _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
+                        reply_data = copy.deepcopy(at_item)
+                        reply_data["item"]["ai_response"] = resp
+                        self.reply_queue.put(reply_data)
+                        _LOGGER.debug(f"结果加入发送队列成功")
+                        self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                        _LOGGER.debug(f"设置缓存成功")
             except Exception as e:
                 _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")

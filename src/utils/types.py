@@ -1,10 +1,57 @@
-from typing import TypedDict, List, Optional
+from typing import TypedDict, List, Optional, Union
+
+from bilibili_api import Picture
+from bilibili_api.video import Video
 
 
 class AtCursor(TypedDict):
     is_end: bool
     id: int
     time: int
+
+
+class PrivateMsg(TypedDict):
+    """
+    事件参数:
+    + receiver_id:   收信人 UID
+    + receiver_type: 收信人类型，1: 私聊, 2: 应援团通知, 3: 应援团
+    + sender_uid:    发送人 UID
+    + talker_id:     对话人 UID
+    + msg_seqno:     事件 Seqno
+    + msg_type:      事件类型
+    + msg_key:       事件唯一编号
+    + timestamp:     事件时间戳
+    + content:       事件内容
+
+    事件类型:
+    + TEXT:           纯文字消息
+    + PICTURE:        图片消息
+    + WITHDRAW:       撤回消息
+    + GROUPS_PICTURE: 应援团图片，但似乎不常触发，一般使用 PICTURE 即可
+    + SHARE_VIDEO:    分享视频
+    + NOTICE:         系统通知
+    + PUSHED_VIDEO:   UP主推送的视频
+    + WELCOME:        新成员加入应援团欢迎
+
+    TEXT = "1"
+    PICTURE = "2"
+    WITHDRAW = "5"
+    GROUPS_PICTURE = "6"
+    SHARE_VIDEO = "7"
+    NOTICE = "10"
+    PUSHED_VIDEO = "11"
+    WELCOME = "306"
+    """
+
+    receiver_id: int
+    receiver_type: int
+    sender_uid: int
+    talker_id: int
+    msg_seqno: int
+    msg_type: int
+    msg_key: int
+    timestamp: int
+    content: Union[str, int, Picture, Video]
 
 
 class AiResponse(TypedDict):
@@ -30,6 +77,8 @@ class AtItem(TypedDict):
     native_url: str  # 评论链接，包含根评论id和父评论id
     at_details: List[dict]  # at的人的信息，常规的个人信息dict
     ai_response: Optional[AiResponse]  # AI回复的内容，需要等到处理完才能获取到
+    is_private_msg: Optional[bool]  # 是否为私信
+    private_msg_event: Optional[PrivateMsg]  # 私信事件
 
 
 class AtItems(TypedDict):
