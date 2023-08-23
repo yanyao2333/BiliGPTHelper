@@ -20,9 +20,9 @@ class BiliSession:
     def build_reply_content(response: AiResponse) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
         msg_list = []
-        msg_list.append(f"[兔年吉祥東雪蓮_哈哈]就你这b召唤我出来的啊\n\n【视频摘要】{response['summary']}")
+        msg_list.append(f"就你这b召唤我出来的啊\n\n【视频摘要】{response['summary']}")
         msg_list.append(
-            f"【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}\n\n关注qwert233喵，关注qwert233谢谢喵!我先润了[兔年吉祥東雪蓮_润]")
+            f"【咱对本次生成内容的自我评分】{response['score']}分\n\n【咱的思考】{response['thinking']}\n\n欢迎在github上给本项目点个star！ https://github.com/yanyao2333/BiliGPTHelper")
         return msg_list
 
     @staticmethod

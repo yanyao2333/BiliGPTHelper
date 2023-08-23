@@ -95,7 +95,7 @@ class BiliComment:
     @staticmethod
     def build_reply_content(response: AiResponse):
         """构建回复内容"""
-        return f"[兔年吉祥東雪蓮_哈哈]就你这b召唤我出来的啊\n\n【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}\n\n关注qwert233喵，关注qwert233谢谢喵!我先润了[兔年吉祥東雪蓮_润]"
+        return f"就你这b召唤我出来的啊\n\n【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}\n\n欢迎在github上给本项目点个star！ https://github.com/yanyao2333/BiliGPTHelper"
 
     @staticmethod
     def chain_callback(retry_state):
