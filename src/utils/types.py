@@ -22,7 +22,7 @@ class AtItem(TypedDict):
     business_id: int  # 基本都为1
     title: str  # 如果是一级回复，这里是视频标题，如果是二级回复，这里是一级回复的内容
     image: str  # 一级回复是视频封面，二级回复为空
-    url: str  # 视频链接
+    uri: str  # 视频链接
     source_content: str  # 回复内容
     source_id: int  # 该评论的id，对应send_comment中的root（如果要回复的话）
     target_id: int  # 上一级评论id， 二级评论指向的就是root_id，三级评论指向的是二级评论的id

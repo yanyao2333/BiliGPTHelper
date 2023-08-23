@@ -5,3 +5,5 @@ APScheduler
 openai-whisper
 pytest
 httpx
+tenacity
+PyYAML

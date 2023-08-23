@@ -1,12 +1,11 @@
 """管理视频处理后缓存"""
 import json
 import os
-import sys
+import traceback
 
-from src.utils.logging import LOGGER, custom_format
+from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="cache")
-_LOGGER.add(sys.stdout, format=custom_format)
 
 
 
@@ -22,7 +21,8 @@ class Cache:
             with open(self.cache_path, "r", encoding="utf-8") as f:
                 self.cache = json.load(f)
         except Exception as e:
-            _LOGGER.trace(f"加载缓存失败：{e}，尝试删除缓存文件并重试")
+            _LOGGER.error(f"加载缓存失败：{e}，尝试删除缓存文件并重试")
+            traceback.print_exc()
             self.cache = {}
             if os.path.exists(self.cache_path):
                 os.remove(self.cache_path)
@@ -37,7 +37,8 @@ class Cache:
             with open(self.cache_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache, f, ensure_ascii=False, indent=4)
         except Exception as e:
-            _LOGGER.trace(f"保存缓存失败：{e}")
+            _LOGGER.error(f"保存缓存失败：{e}")
+            traceback.print_exc()
 
     def get_cache(self, key: str):
         """获取缓存"""

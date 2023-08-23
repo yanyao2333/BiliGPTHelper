@@ -1,13 +1,11 @@
-import sys
 from datetime import datetime
 
-from bilibili_api import Credential
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from src.utils.logging import LOGGER, custom_format
+from bilibili_api import Credential
 
+from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="bilibili-credential")
-_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class BiliCredential(Credential):
@@ -20,6 +18,7 @@ class BiliCredential(Credential):
         buvid3: str,
         dedeuserid: str,
         ac_time_value: str,
+            sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
     ):
         """
         全部强制要求传入，以便于cookie刷新
@@ -36,10 +35,11 @@ class BiliCredential(Credential):
             dedeuserid=dedeuserid,
             ac_time_value=ac_time_value,
         )
-        self.sched = AsyncIOScheduler(timezone="Asia/Shanghai")
+        self.sched = sched
 
     async def _check_refresh(self):
         """检查cookie是否过期"""
+        _LOGGER.debug("正在检查cookie是否过期")
         if await self.check_refresh():
             _LOGGER.info("cookie过期，正在刷新")
             await self.refresh()
@@ -53,9 +53,9 @@ class BiliCredential(Credential):
 
     def start_check(self):
         self.sched.add_job(
-            self.check_refresh,
+            self._check_refresh,
             trigger="interval",
-            seconds=60,
+            seconds=600,
             id="check_refresh",
             max_instances=3,
             next_run_time=datetime.now(),

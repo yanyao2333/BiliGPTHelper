@@ -1,48 +1,60 @@
-import sys
+import time
 
 import whisper as whi
-from src.utils.logging import LOGGER, custom_format
-import time
-from src.llm.templates import Templates
-from src.llm.openai_gpt import OpenAIGPTClient
 
+from src.llm.openai_gpt import OpenAIGPTClient
+from src.llm.templates import Templates
+from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="Whisper")
-_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class Whisper:
     def __init__(self):
-        pass
+        self.model = None
+
+    def load_model(self, model_size="medium", device="cpu", download_dir=None):
+        """
+        加载whisper模型
+        :param model_size: 模型大小，可选small、medium、large
+        :param device: 设备，可选cpu、cuda
+        :param download_dir: 模型下载目录(None表示默认)
+        :return: None
+        """
+        _LOGGER.info(f"正在加载whisper模型，模型大小{model_size}，设备{device}")
+        self.model = whi.load_model(model_size, device, download_root=download_dir)
+        _LOGGER.info(f"加载whisper模型成功")
+        return self.model
+
+    def get_model(self):
+        if self.model is None:
+            self.load_model()
+        return self.model
 
     @staticmethod
     def whisper_audio(
-        audio_path,
-        model_size="medium",
-        after_process=False,
-        prompt=None,
-        device="cpu",
-        openai_api_key=None,
-        openai_endpoint=None,
+            model,
+            audio_path,
+            after_process=False,
+            prompt=None,
+            openai_api_key=None,
+            openai_endpoint=None,
     ) -> str:
         """
         使用whisper转写音频
+        :param model: whisper模型
         :param audio_path: 音频路径
-        :param model_size:使用的模型大小
         :param after_process: 是否使用gpt-3.5-turbo后处理
         :param prompt: 提交给whisper的prompt
-        :param device: 使用的推理设备（使用gpu请填写cuda）
         :param openai_api_key: 如果要进行后处理需要提供
         :param openai_endpoint: 如果要进行后处理可根据需要提供
         :return: 字幕文本
         """
         begin_time = time.perf_counter()
         _LOGGER.info(f"开始转写 {audio_path}")
-        model = whi.load_model(model_size, device=device)
-        _LOGGER.debug(f"模型加载成功，开始转写")
         result = whi.transcribe(
             model, audio_path, initial_prompt=prompt
-        )  # TODO 存在各种包括但不限于标点丢失、简繁中转换，语气词丢失等问题，后期尝试使用llm后处理
+        )  # 存在各种包括但不限于标点丢失、简繁中转换，语气词丢失等问题，后期尝试使用llm后处理
         text = result["text"]
         _LOGGER.debug(f"转写成功")
         if after_process:

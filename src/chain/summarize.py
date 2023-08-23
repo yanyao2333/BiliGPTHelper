@@ -1,27 +1,27 @@
 import asyncio
-import sys
+import copy
+import json
+import os
+import time
+import traceback
 
+import ffmpeg
 import httpx
+import tenacity
 from bilibili_api import Credential, HEADERS, ResourceType
 
-from src.utils.queue_manager import QueueManager
-from src.utils.logging import LOGGER, custom_format
+from src.asr.local_whisper import Whisper
+from src.bilibili.bili_comment import BiliComment
+from src.bilibili.bili_video import BiliVideo
 from src.llm.openai_gpt import OpenAIGPTClient
 from src.llm.templates import Templates
-from src.asr.local_whisper import Whisper
-from src.utils.types import *
-from src.utils.global_variables_manager import GlobalVariablesManager
-from src.bilibili.bili_video import BiliVideo
-from src.bilibili.bili_comment import BiliComment
 from src.utils.cache import Cache
-import ffmpeg
-import time
-import os
-import json
-import copy
+from src.utils.global_variables_manager import GlobalVariablesManager
+from src.utils.logging import LOGGER
+from src.utils.queue_manager import QueueManager
+from src.utils.types import *
 
 _LOGGER = LOGGER.bind(name="summarize-chain")
-_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class SummarizeChain:
@@ -33,6 +33,7 @@ class SummarizeChain:
             value_manager: GlobalVariablesManager,
             credential: Credential,
             cache: Cache,
+            whisper_model,
     ):
         self.summarize_queue = queue_manager.get_queue("summarize")
         self.reply_queue = queue_manager.get_queue("reply")
@@ -45,8 +46,8 @@ class SummarizeChain:
             else os.path.join(os.getcwd(), "temp")
         )
         self.whisper_model = (
-            self.value_manager.get_variable("whisper-model")
-            if self.value_manager.get_variable("whisper-model")
+            self.value_manager.get_variable("whisper-model-size")
+            if self.value_manager.get_variable("whisper-model-size")
             else ("medium")
         )
         self.model = (
@@ -66,23 +67,49 @@ class SummarizeChain:
             else False
         )
         self.cache = cache
+        self.whisper_model_obj = whisper_model
+        self.max_tokens = (
+            self.value_manager.get_variable("max-total-tokens")
+            if self.value_manager.get_variable("max-total-tokens")
+            else None
+        )
+        self.now_tokens = 0
 
-    async def start(self):
-        while True:
-            try:
-                await self._start_chain()
-            except asyncio.CancelledError:
-                _LOGGER.info("收到取消信号，摘要处理链关闭")
-                break
-            except Exception as e:
-                _LOGGER.trace(f"摘要处理链出现错误：{e}，正在重启并处理剩余任务")
+    # async def start(self):
+    #     while True:
+    #         try:
+    #             _LOGGER.info("正在启动摘要处理链")
+    #             await self._start_chain()
+    #         except asyncio.CancelledError:
+    #             _LOGGER.info("收到取消信号，摘要处理链关闭")
+    #             break
+    #         except Exception as e:
+    #             _LOGGER.trace(f"摘要处理链出现错误：{e}，正在重启并处理剩余任务")
 
-    async def _start_chain(self):
+    @staticmethod
+    def chain_callback(retry_state):
+        exception = retry_state.outcome.exception()
+        _LOGGER.error(f"捕获到错误：{exception}")
+        traceback.print_tb(retry_state.outcome.exception().__traceback__)
+        _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
+        _LOGGER.debug(f'下一次重试将在{retry_state.next_action.sleep}秒后进行')
+
+    @tenacity.retry(
+        retry=tenacity.retry_if_exception_type(Exception),
+        wait=tenacity.wait_fixed(10),
+        before_sleep=chain_callback
+    )
+    async def start_chain(self):
         try:
             while True:
+                if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
+                    _LOGGER.warning(
+                        f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行")
+                    raise asyncio.CancelledError
                 # 从队列中获取摘要
                 at_items: AtItems = await self.summarize_queue.get()
-                _LOGGER.info(f"摘要处理链获取到新任务了：{at_items['item']['url']}")
+                # _LOGGER.debug(at_items)
+                _LOGGER.info(f"摘要处理链获取到新任务了：{at_items['item']['uri']}")
                 if at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
                     _LOGGER.warning(f"该消息类型不受支持，跳过处理")
                     continue
@@ -92,16 +119,17 @@ class SummarizeChain:
                 # 获取视频相关信息
                 begin_time = time.perf_counter()
                 _LOGGER.info(f"开始处理该视频音频流和字幕")
-                video = BiliVideo(self.credential, url=at_items["item"]["url"])
-                _, _type = video.get_video_obj()
+                video = BiliVideo(self.credential, url=at_items["item"]["uri"])
+                _, _type = await video.get_video_obj()
+                # _LOGGER.debug(_type)
                 if _type != ResourceType.VIDEO:
-                    _LOGGER.warning(f"视频{at_items['item']['url']}不是视频或不存在，跳过")
+                    _LOGGER.warning(f"视频{at_items['item']['uri']}不是视频或不存在，跳过")
                     continue
                 _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
                 video_info = await video.get_video_info()
                 if self.cache.get_cache(key=video_info["bvid"]):
                     _LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-                    self.reply_queue.put(self.cache.get_cache(key=video_info["bvid"]))
+                    await self.reply_queue.put(self.cache.get_cache(key=video_info["bvid"]))
                     continue
                 _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
                 format_video_name = f"『{video_info['title']}』"
@@ -123,6 +151,11 @@ class SummarizeChain:
                 )
                 _LOGGER.debug(f"视频评论获取成功，开始获取视频字幕")
                 if len(video_info["subtitle"]["list"]) == 0:
+                    if self.value_manager.get_variable("whisper-enable") is False:
+                        _LOGGER.warning(
+                            f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理"
+                        )
+                        continue
                     _LOGGER.warning(
                         f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
                     )
@@ -150,9 +183,8 @@ class SummarizeChain:
                     # 使用whisper转写音频
                     audio_path = f"{temp_dir}/{video_info['aid']} temp.mp3"
                     text = Whisper.whisper_audio(
+                        self.whisper_model_obj,
                         audio_path,
-                        model_size=self.whisper_model,
-                        device=self.whisper_device,
                         after_process=self.whisper_after_process,
                         openai_api_key=self.api_key,
                         openai_endpoint=self.api_base,
@@ -191,34 +223,35 @@ class SummarizeChain:
                 )
                 _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
                 # 调用openai的Completion API
-                answer, _ = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
+                answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
+                self.now_tokens += tokens
                 _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
                 # 处理结果
                 if answer:
                     try:
                         resp = json.loads(answer)
-                        if "noneed" is True:
+                        if resp["noneed"] is True:
                             _LOGGER.warning(
                                 f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
                             )
                             continue
-                        elif "summary" "score" "thinking" in resp.keys():
+                        else:
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
                             _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
                             reply_data = copy.deepcopy(at_items)
                             reply_data["item"]["ai_response"] = resp
-                            self.reply_queue.put(reply_data)
+                            await self.reply_queue.put(reply_data)
                             _LOGGER.debug(f"结果加入发送队列成功")
                             self.cache.set_cache(key=video_info["bvid"], value=reply_data)
                             _LOGGER.debug(f"设置缓存成功")
                     except Exception as e:
-                        _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
+                        _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
+                        traceback.print_tb(e.__traceback__)
                         await self.retry_summarize(answer, at_items, format_video_name, begin_time, video_info)
         except asyncio.CancelledError:
-            _LOGGER.info("摘要处理链关闭")
-            raise asyncio.CancelledError
+            _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
     async def retry_summarize(self, ai_answer, at_item, format_video_name, begin_time, video_info):
         """通过重试prompt让chatgpt重新构建json
@@ -234,7 +267,8 @@ class SummarizeChain:
         prompt = OpenAIGPTClient.use_template(
             Templates.RETRY, input=ai_answer
         )
-        answer, _ = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
+        answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
+        self.now_tokens += tokens
         if answer:
             try:
                 resp = json.loads(answer)

@@ -1,14 +1,13 @@
 """llm对接的基础类"""
 import abc
-import sys
+import traceback
 from typing import Tuple
 
 from src.llm.templates import Templates
+from src.utils.logging import LOGGER
 from src.utils.parse_prompt import parse_prompt, build_messages
-from src.utils.logging import LOGGER, custom_format
 
 _LOGGER = LOGGER.bind(name="llm_base")
-_LOGGER.add(sys.stdout, format=custom_format)
 
 
 class LLMBase:
@@ -43,5 +42,6 @@ class LLMBase:
             _LOGGER.info(f"使用模板成功，生成的prompt为：{prompt}")
             return prompt
         except Exception as e:
-            _LOGGER.trace(f"使用模板失败：{e}")
+            _LOGGER.error(f"使用模板失败：{e}")
+            traceback.print_exc()
             return None

@@ -30,7 +30,7 @@ class BiliVideo:
             self.video_obj = video.Video(bvid=self.bvid, credential=self.credential)
         else:
             raise ValueError("缺少必要参数")
-        return self.video_obj, type
+        return self.video_obj, _type
 
     async def get_video_info(self):
         if not self.video_obj:

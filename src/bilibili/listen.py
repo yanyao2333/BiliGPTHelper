@@ -1,35 +1,48 @@
 """侦听at消息和私聊转发视频消息"""
 
-import asyncio
-import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from bilibili_api import session, Credential
-from src.utils.logging import LOGGER, custom_format
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from src.utils.types import *
-from src.constants import summarize_keyword, evaluate_keyword
+from bilibili_api import session, Credential
 
+from src.utils.global_variables_manager import GlobalVariablesManager
+from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
-
+from src.utils.types import *
 
 _LOGGER = LOGGER.bind(name="bilibili-listener")
-_LOGGER.add(sys.stdout, format=custom_format)
-
+run_time = 0
 
 class Listen:
-    def __init__(self, credential, queue_manager: QueueManager):
+    def __init__(self, credential, queue_manager: QueueManager, value_manager: GlobalVariablesManager,
+                 sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai")):
         self.credential = credential
         self.summarize_queue = queue_manager.get_queue("summarize")
         self.evaluate_queue = queue_manager.get_queue("evaluate")
         self.last_at_time = int(time.time())  # 当前时间作为初始时间戳
-        self.sched = AsyncIOScheduler(timezone="Asia/Shanghai")
+        self.sched = sched
+        self.value_manager = value_manager
 
     async def listen_at(self):
+        global run_time
         data: AtAPIResponse = await session.get_at(self.credential)
+        _LOGGER.debug(f"获取at消息成功，内容为：{data}")
+
+        # TODO remove this
+        if len(data["items"]) != 0:
+            if run_time > 2:
+                return
+            _LOGGER.warning(f"目前处于debug状态，将直接处理第一条at消息")
+            await self.dispatch_task(data["items"][0])
+            run_time += 1
+            return
+
 
         # 判断是否有新消息
+        if len(data["items"]) == 0:
+            _LOGGER.debug(f"没有新消息，返回")
+            return
         if self.last_at_time >= data["items"][0]["at_time"]:
             _LOGGER.debug(
                 f"last_at_time{self.last_at_time}大于或等于当前最新消息的at_time{data['items'][0]['at_time']}，返回"
@@ -55,9 +68,11 @@ class Listen:
     async def dispatch_task(self, data: AtItems):
         content = data["item"]["source_content"]
         _LOGGER.info(f"检测到at消息，内容为：{content}")
+        summarize_keyword = self.value_manager.get_variable("summarize-keywords")
+        evaluate_keyword = self.value_manager.get_variable("evaluate-keywords")
         for keyword in summarize_keyword:
             if keyword in content:
-                _LOGGER.info(f"检测到关键字{keyword}，放入【总结】队列")
+                _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")
                 await self.summarize_queue.put(data)
                 return
         for keyword in evaluate_keyword:
@@ -77,7 +92,7 @@ class Listen:
             next_run_time=datetime.now(),
         )
         self.sched.start()
-        _LOGGER.info("侦听at消息定时任务注册成功， 每20秒检查一次")
+        _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
 
     @staticmethod
     def build_credential(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value):
