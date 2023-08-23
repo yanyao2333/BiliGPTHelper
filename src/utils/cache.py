@@ -8,7 +8,6 @@ from src.utils.logging import LOGGER
 _LOGGER = LOGGER.bind(name="cache")
 
 
-
 class Cache:
     def __init__(self, cache_path: str):
         self.cache_path = cache_path

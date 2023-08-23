@@ -10,6 +10,7 @@ from src.utils.parse_prompt import parse_prompt, build_messages
 
 _LOGGER = LOGGER.bind(name="openai_gpt")
 
+
 class OpenAIGPTClient(LLMBase):
     def __init__(self, api_key, endpoint="https://api.openai.com/v1"):
         self.api_key = api_key

@@ -93,31 +93,41 @@ class SummarizeChain:
         _LOGGER.error(f"捕获到错误：{exception}")
         traceback.print_tb(retry_state.outcome.exception().__traceback__)
         _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
-        _LOGGER.debug(f'下一次重试将在{retry_state.next_action.sleep}秒后进行')
+        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
         wait=tenacity.wait_fixed(10),
-        before_sleep=chain_callback
+        before_sleep=chain_callback,
     )
     async def start_chain(self):
         try:
             while True:
                 if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
                     _LOGGER.warning(
-                        f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行")
+                        f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行"
+                    )
                     raise asyncio.CancelledError
                 # 从队列中获取摘要
                 at_items: AtItems = await self.summarize_queue.get()
                 # _LOGGER.debug(at_items)
                 _LOGGER.info(f"摘要处理链获取到新任务了：{at_items['item']['uri']}")
-                if at_items["item"]["type"] == "private_msg" and at_items["item"]["business_id"] == 114:
+                if (
+                        at_items["item"]["type"] == "private_msg"
+                        and at_items["item"]["business_id"] == 114
+                ):
                     _LOGGER.debug(f"该消息是私信消息，继续处理")
-                elif at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
+                elif (
+                        at_items["item"]["type"] != "reply"
+                        or at_items["item"]["business_id"] != 1
+                ):
                     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
                     continue
-                if at_items["item"]["root_id"] != 0 or at_items["item"]["target_id"] != 0:
-                    _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理") # TODO 楼中楼消息的处理
+                if (
+                        at_items["item"]["root_id"] != 0
+                        or at_items["item"]["target_id"] != 0
+                ):
+                    _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
                     continue
                 # 获取视频相关信息
                 begin_time = time.perf_counter()
@@ -132,7 +142,9 @@ class SummarizeChain:
                 video_info = await video.get_video_info()
                 if self.cache.get_cache(key=video_info["bvid"]):
                     _LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-                    await self.reply_queue.put(self.cache.get_cache(key=video_info["bvid"]))
+                    await self.reply_queue.put(
+                        self.cache.get_cache(key=video_info["bvid"])
+                    )
                     continue
                 _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
                 format_video_name = f"『{video_info['title']}』"
@@ -155,9 +167,7 @@ class SummarizeChain:
                 _LOGGER.debug(f"视频评论获取成功，开始获取视频字幕")
                 if len(video_info["subtitle"]["list"]) == 0:
                     if self.value_manager.get_variable("whisper-enable") is False:
-                        _LOGGER.warning(
-                            f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理"
-                        )
+                        _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
                         continue
                     _LOGGER.warning(
                         f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
@@ -200,13 +210,13 @@ class SummarizeChain:
                 else:
                     subtitle_url = await video.get_video_subtitle(page_index=0)
                     if subtitle_url is None:
-                        _LOGGER.warning(
-                            f"视频{format_video_name}因未知原因无法获取字幕，跳过处理"
-                        )
+                        _LOGGER.warning(f"视频{format_video_name}因未知原因无法获取字幕，跳过处理")
                     _LOGGER.debug(f"视频字幕获取成功，正在读取字幕")
                     # 下载字幕
                     async with httpx.AsyncClient() as client:
-                        resp = await client.get("https:" + subtitle_url, headers=HEADERS)
+                        resp = await client.get(
+                            "https:" + subtitle_url, headers=HEADERS
+                        )
                     _LOGGER.debug(f"字幕获取成功，正在转换为纯字幕")
                     # 转换字幕格式
                     text = ""
@@ -214,7 +224,9 @@ class SummarizeChain:
                         text += subtitle["content"] + "\n"
                     _LOGGER.debug(f"字幕转换成功，正在使用模板生成prompt")
                 # 使用模板生成prompt
-                _LOGGER.info(f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要")
+                _LOGGER.info(
+                    f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
+                )
                 prompt = OpenAIGPTClient.use_template(
                     Templates.SUMMARIZE_USER,
                     Templates.SUMMARIZE_SYSTEM,
@@ -226,7 +238,9 @@ class SummarizeChain:
                 )
                 _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
                 # 调用openai的Completion API
-                answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
+                answer, tokens = OpenAIGPTClient(
+                    self.api_key, self.api_base
+                ).completion(prompt, model=self.model)
                 self.now_tokens += tokens
                 _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
                 # 处理结果
@@ -234,23 +248,29 @@ class SummarizeChain:
                     try:
                         resp = json.loads(answer)
                         if resp["noneed"] is True:
-                            _LOGGER.warning(
-                                f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
-                            )
+                            _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                             continue
                         else:
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
-                            if at_items["item"]["type"] == "private_msg" and at_items["item"]["business_id"] == 114:
+                            if (
+                                    at_items["item"]["type"] == "private_msg"
+                                    and at_items["item"]["business_id"] == 114
+                            ):
                                 _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
                                 reply_data = copy.deepcopy(at_items)
                                 reply_data["item"]["ai_response"] = resp
                                 await self.private_queue.put(reply_data)
                                 _LOGGER.debug(f"结果加入私信处理队列成功")
-                                reply_data["item"]["private_msg_event"]["content"] = \
-                                reply_data["item"]["private_msg_event"]["content"].get_bvid()
-                                self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                                reply_data["item"]["private_msg_event"][
+                                    "content"
+                                ] = reply_data["item"]["private_msg_event"][
+                                    "content"
+                                ].get_bvid()
+                                self.cache.set_cache(
+                                    key=video_info["bvid"], value=reply_data
+                                )
                                 _LOGGER.debug(f"设置缓存成功")
                             else:
                                 _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
@@ -258,16 +278,22 @@ class SummarizeChain:
                                 reply_data["item"]["ai_response"] = resp
                                 self.reply_queue.put(reply_data)
                                 _LOGGER.debug(f"结果加入发送队列成功")
-                                self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                                self.cache.set_cache(
+                                    key=video_info["bvid"], value=reply_data
+                                )
                                 _LOGGER.debug(f"设置缓存成功")
                     except Exception as e:
                         _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                         traceback.print_tb(e.__traceback__)
-                        await self.retry_summarize(answer, at_items, format_video_name, begin_time, video_info)
+                        await self.retry_summarize(
+                            answer, at_items, format_video_name, begin_time, video_info
+                        )
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
-    async def retry_summarize(self, ai_answer, at_item, format_video_name, begin_time, video_info):
+    async def retry_summarize(
+            self, ai_answer, at_item, format_video_name, begin_time, video_info
+    ):
         """通过重试prompt让chatgpt重新构建json
 
         :param ai_answer: ai返回的内容
@@ -278,31 +304,33 @@ class SummarizeChain:
         :return: None
         """
         _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
-        prompt = OpenAIGPTClient.use_template(
-            Templates.RETRY, input=ai_answer
+        prompt = OpenAIGPTClient.use_template(Templates.RETRY, input=ai_answer)
+        answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(
+            prompt, model=self.model
         )
-        answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(prompt, model=self.model)
         self.now_tokens += tokens
         if answer:
             try:
                 resp = json.loads(answer)
                 if resp["noneed"] is True:
-                    _LOGGER.warning(
-                        f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
-                    )
+                    _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                     return None
                 elif "summary" "score" "thinking" in resp.keys():
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
-                    if at_item["item"]["type"] == "private_msg" and at_item["item"]["business_id"] == 114:
+                    if (
+                            at_item["item"]["type"] == "private_msg"
+                            and at_item["item"]["business_id"] == 114
+                    ):
                         _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
                         reply_data = copy.deepcopy(at_item)
                         reply_data["item"]["ai_response"] = resp
                         await self.private_queue.put(reply_data)
                         _LOGGER.debug(f"结果加入私信处理队列成功")
-                        reply_data["item"]["private_msg_event"]["content"] = reply_data["item"]["private_msg_event"][
-                            "content"].get_bvid()
+                        reply_data["item"]["private_msg_event"]["content"] = reply_data[
+                            "item"
+                        ]["private_msg_event"]["content"].get_bvid()
                         self.cache.set_cache(key=video_info["bvid"], value=reply_data)
                         _LOGGER.debug(f"设置缓存成功")
                     else:

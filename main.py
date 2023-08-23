@@ -60,7 +60,7 @@ async def start_pipeline():
         bili_jct=config["bili_jct"],
         buvid3=config["buvid3"],
         dedeuserid=config["dedeuserid"],
-        ac_time_value=config["ac_time_value"]
+        ac_time_value=config["ac_time_value"],
     )
 
     # 初始化at侦听器
@@ -70,15 +70,20 @@ async def start_pipeline():
     # 预加载whisper模型
     _LOGGER.info("正在预加载whisper模型")
     if config["whisper-enable"]:
-        whisper = Whisper().load_model(config["whisper-model-size"], config["whisper-device"],
-                                       config["whisper-model-dir"])
+        whisper = Whisper().load_model(
+            config["whisper-model-size"],
+            config["whisper-device"],
+            config["whisper-model-dir"],
+        )
     else:
         _LOGGER.info("whisper未启用")
         whisper = None
 
     # 初始化摘要处理链
     _LOGGER.info("正在初始化摘要处理链")
-    summarize_chain = SummarizeChain(queue_manager, value_manager, credential, cache, whisper)
+    summarize_chain = SummarizeChain(
+        queue_manager, value_manager, credential, cache, whisper
+    )
 
     # 启动侦听器
     _LOGGER.info("正在启动at侦听器")

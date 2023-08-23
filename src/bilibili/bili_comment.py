@@ -54,7 +54,7 @@ class BiliComment:
             "机器人",
             "小助手",
             "总结",
-            "有趣的程序员"
+            "有趣的程序员",
         ]  # TODO 从配置文件中读取（设置过滤表尽可能避免低质量评论）
         new_comment_list = []
         for _comment in comment_list["replies"]:
@@ -74,9 +74,7 @@ class BiliComment:
             _LOGGER.debug(f"正在拼接评论")
             comment_str = ""
             for _comment in new_comment_list:
-                comment_str += (
-                    f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
-                )
+                comment_str += f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
             _LOGGER.debug(f"拼接评论成功")
             return comment_str
         _LOGGER.debug(f"正在挑选三条评论")
@@ -103,12 +101,12 @@ class BiliComment:
         _LOGGER.error(f"捕获到错误：{exception}")
         traceback.print_tb(retry_state.outcome.exception().__traceback__)
         _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
-        _LOGGER.debug(f'下一次重试将在{retry_state.next_action.sleep}秒后进行')
+        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
         wait=tenacity.wait_fixed(10),
-        before_sleep=chain_callback
+        before_sleep=chain_callback,
     )
     async def start_comment(self):
         """发送评论"""
@@ -122,8 +120,9 @@ class BiliComment:
                     if data is None:
                         data: AtItems = await self.comment_queue.get()
                         _LOGGER.debug(f"获取到新的评论任务，开始处理")
-                    video_obj, _type = await BiliVideo(credential=self.credential,
-                                                       url=data["item"]["uri"]).get_video_obj()
+                    video_obj, _type = await BiliVideo(
+                        credential=self.credential, url=data["item"]["uri"]
+                    ).get_video_obj()
                     if not video_obj:
                         _LOGGER.warning(f"视频{data['item']['uri']}不存在")
                         return False
