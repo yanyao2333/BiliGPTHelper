@@ -1,0 +1,36 @@
+bilibili_cookie:
+  bili_jct: ""
+  ac_time_value: ""
+  buvid3: ""
+  SESSDATA: ""
+  dedeuserid: ""
+
+keywords:
+  summarize-keywords:
+    - "总结"
+    - "总结一下"
+    - "总结一下吧"
+    - "总结一下吧！"
+  evaluate-keywords:
+    - "锐评视频"
+    - "锐评"
+    - "锐评一下"
+    - "锐评一下吧"
+    - "锐评一下吧！"
+
+
+openai:
+  api-key: ""
+  api-base: ""
+  model: "gpt-3.5-turbo-16k"
+  max-total-tokens: 100000  # 一次运行最多使用的token，耗尽后程序停止
+
+whisper:
+  whisper-enable: false
+  whisper-model-size: "medium"
+  whisper-device: "cuda"
+  whisper-after-process: true
+  whisper-model-dir: null # 默认使用默认位置
+
+temp-dir: null # 默认使用当前目录下的temp文件夹
+cache-path: "" # 必填
