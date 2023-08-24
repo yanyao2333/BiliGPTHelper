@@ -37,6 +37,23 @@
 
 ### 🚀 使用方法
 
+#### 一、通过docker运行
+
+```shell
+docker pull yanyaobbb/bilibili_gpt_helper:v1.0
+```
+
+```shell
+docker run -d \
+    --name biligpthelper \
+    -v 你本地的biligpt配置文件目录:/data \
+    yanyaobbb/bilibili_gpt_helper:v1.0
+```
+
+首次运行会创建模板文件，编辑config.yml，然后重启容器即可
+
+#### 二、源代码运行
+
 1. 克隆并安装依赖
 
 ```shell

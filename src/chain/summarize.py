@@ -242,7 +242,10 @@ class SummarizeChain:
                 response = OpenAIGPTClient(
                     self.api_key, self.api_base
                 ).completion(prompt, model=self.model)
-
+                if response is None:
+                    _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
+                    continue
+                answer, tokens = response
                 self.now_tokens += tokens
                 _LOGGER.debug(f"openai api输出内容为：{answer}")
                 _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
