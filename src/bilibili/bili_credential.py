@@ -60,5 +60,5 @@ class BiliCredential(Credential):
             max_instances=3,
             next_run_time=datetime.now(),
         )
-        self.sched.start()
+        # self.sched.start()
         _LOGGER.info("[定时任务]检查cookie是否过期定时任务注册成功， 每60秒检查一次")

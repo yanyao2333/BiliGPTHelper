@@ -1,6 +1,9 @@
 import asyncio
+import signal
+from enum import Enum
 
 import yaml
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
@@ -14,6 +17,13 @@ from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
 
 
+class Status(Enum):
+    """状态枚举"""
+
+    RUNNING = "running"
+    STOPPED = "stopped"
+
+
 def flatten_dict(d):
     items = {}
     for k, v in d.items():
@@ -25,7 +35,6 @@ def flatten_dict(d):
 
 
 def config_reader():
-    """读取配置文件，现在只是个示例"""
     with open("config.yml", "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return flatten_dict(config)
@@ -53,6 +62,10 @@ async def start_pipeline():
     _LOGGER.info(f"正在初始化缓存，缓存路径为：{config['cache-path']}")
     cache = Cache(config["cache-path"])
 
+    # 初始化定时器
+    _LOGGER.info("正在初始化定时器")
+    sched = AsyncIOScheduler(timezone="Asia/Shanghai")
+
     # 初始化cookie
     _LOGGER.info("正在初始化cookie")
     credential = BiliCredential(
@@ -61,11 +74,12 @@ async def start_pipeline():
         buvid3=config["buvid3"],
         dedeuserid=config["dedeuserid"],
         ac_time_value=config["ac_time_value"],
+        sched=sched,
     )
 
     # 初始化at侦听器
     _LOGGER.info("正在初始化at侦听器")
-    listen = Listen(credential, queue_manager, value_manager)
+    listen = Listen(credential, queue_manager, value_manager, sched=sched)
 
     # 预加载whisper模型
     _LOGGER.info("正在预加载whisper模型")
@@ -94,19 +108,23 @@ async def start_pipeline():
     _LOGGER.info("正在启动cookie过期检查和刷新")
     credential.start_check()
 
+    # 启动定时任务调度器
+    _LOGGER.info("正在启动定时任务调度器")
+    sched.start()
+
     # 启动摘要处理链
     _LOGGER.info("正在启动摘要处理链")
-    summarize_task = asyncio.create_task(summarize_chain.start_chain())
+    asyncio.create_task(summarize_chain.start_chain())
 
     # 启动评论
     _LOGGER.info("正在启动评论处理链")
     comment = BiliComment(queue_manager.get_queue("reply"), credential)
-    comment_task = asyncio.create_task(comment.start_comment())
+    asyncio.create_task(comment.start_comment())
 
     # 启动私信
     _LOGGER.info("正在启动私信处理链")
     private = BiliSession(credential, queue_manager.get_queue("private"))
-    private_task = asyncio.create_task(private.start_private_reply())
+    asyncio.create_task(private.start_private_reply())
 
     # await asyncio.gather(summarize_task, comment_task)
     _LOGGER.info("摘要处理链、评论处理链、私信处理链启动完成")
@@ -120,9 +138,28 @@ async def start_pipeline():
     _LOGGER.info("🎉启动完成 enjoy it")
 
     while True:
+        if flag == Status.STOPPED:
+            _LOGGER.info("正在关闭BiliGPTHelper，记得下次再来玩喵！")
+            _LOGGER.info("正在关闭定时任务调度器")
+            for job in sched.get_jobs():
+                sched.remove_job(job.id)
+            sched.shutdown()
+            _LOGGER.info("正在关闭所有的处理链")
+            break
         await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
+    flag = Status.RUNNING
     _LOGGER = LOGGER.bind(name="main")
+
+
+    def stop_handler(sig, frame):
+        global flag
+        _LOGGER.info("正在停止BiliGPTHelper，记得下次再来玩喵！")
+        flag = Status.STOPPED
+
+
+    signal.signal(signal.SIGINT, stop_handler)
+    signal.signal(signal.SIGTERM, stop_handler)
     asyncio.run(start_pipeline())

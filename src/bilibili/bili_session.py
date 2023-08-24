@@ -65,5 +65,5 @@ class BiliSession:
                     )
                     await asyncio.sleep(3)
             except asyncio.CancelledError:
-                _LOGGER.info("评论处理链关闭")
+                _LOGGER.info("私信处理链关闭")
                 return

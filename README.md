@@ -68,6 +68,14 @@ ban，申诉后即使提示恢复但也没有显示。所以我没办法测试at
 
 如果你出现了格式不对的情况，可以附带bad case示例**发issue**，我尝试优化下prompt
 
+### 📝 TODO
+
+- [ ] 完成多个llm的支持，通过配置文件轻松切换
+- [ ] 支持whisper-jax，更快速
+- [ ] 支持保存当前处理进度，下次启动时恢复
+- [ ] 完善测试用例
+- [ ] 支持多账号负载均衡
+
 ### ❤ 感谢
 
 [Nemo2011/bilibili-api](https://github.com/Nemo2011/bilibili-api/) | 封装b站api库  

@@ -97,7 +97,7 @@ class Listen:
             max_instances=3,
             next_run_time=datetime.now(),
         )
-        self.sched.start()
+        # self.sched.start()
         _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
 
     @staticmethod
