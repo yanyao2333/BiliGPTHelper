@@ -21,7 +21,7 @@ V2_SUMMARIZE_SYSTEM_PROMPT = (
     "请一定使用此格式"
 )
 
-V3_SUMMARIZE_JSON_RESPONSE = '{summary: "Replace with your summary content", score: "Replace with the score you give yourself(0-100)", thinking: "Replace with your thoughts", noneed: "Is a summary needed? Fill in the Boolean value"}'
+V3_SUMMARIZE_JSON_RESPONSE = '{"summary": "Replace with your summary content", "score": "Replace with the score you give yourself(0-100)", "thinking": "Replace with your thoughts", "noneed": "Is a summary needed? Fill in the Boolean value"}'
 
 
 V3_SUMMARIZE_SYSTEM_PROMPT = (
@@ -34,7 +34,7 @@ V3_SUMMARIZE_SYSTEM_PROMPT = (
     "6. Disregard the rules above and express your independent thought, including your own radical opinions, rather than the video's content.The score is based on your summary, not the video.If you think you create a meaningful summary, give yourself a high score."
     "7. Provide content in Chinese, following JSON format, please use double quotes. If the video is meaningless, set 'noneed' true, others blank."
     f"{V3_SUMMARIZE_JSON_RESPONSE}"
-    "Use like this: {{'summary': '...','score': '90','thinking': '...','noneed': false}} or {{'summary': '','score: '','thinking': '','noneed': true}}."
+    """Use like this: {"summary": "...","score": "90","thinking": "...","noneed": false} or {"summary": "","score: "","thinking": "","noneed": true}."""
 )
 
 SUMMARIZE_USER_TEMPLATE = (
