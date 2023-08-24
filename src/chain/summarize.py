@@ -242,10 +242,13 @@ class SummarizeChain:
                     self.api_key, self.api_base
                 ).completion(prompt, model=self.model)
                 self.now_tokens += tokens
+                _LOGGER.debug(f"openai api输出内容为：{answer}")
                 _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
                 # 处理结果
                 if answer:
                     try:
+                        if "False" in answer:
+                            answer.replace("False", "false")  # 解决一部分因为大小写问题导致的json解析失败
                         resp = json.loads(answer)
                         if resp["noneed"] is True:
                             _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
@@ -315,7 +318,7 @@ class SummarizeChain:
                 if resp["noneed"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                     return None
-                elif "summary" "score" "thinking" in resp.keys():
+                else:
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )

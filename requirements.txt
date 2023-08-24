@@ -7,3 +7,4 @@ pytest
 httpx
 tenacity
 PyYAML
+ffmpeg-python

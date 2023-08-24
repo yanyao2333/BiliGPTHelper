@@ -49,7 +49,7 @@ AFTER_PROCESS_SUBTITLE = (
 
 V2_SUMMARIZE_USER_TEMPLATE = f"Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nTags: [tags]\n\nComments: [comments]"
 
-V2_RETRY_TEMPLATE = f"Please convert the text I provide below into the following JSON format and return it to me, without adding anything else. If the summary doesn't exist, then 'noneed' is true. If other fields besides summary are missing, they can be ignored, and the corresponding values left blank, with 'noneed' still false:\n\nJSON format: {SUMMARIZE_JSON_RESPONSE}\n\nInput message: [input]"
+V2_RETRY_TEMPLATE = f"Please convert the text I provide below into the following JSON format and return it to me, without adding anything else. If the summary doesn't exist, then 'noneed' is true. If other fields besides summary are missing, they can be ignored, and the corresponding values left blank, with 'noneed' still false:\n\nJSON format: {V3_SUMMARIZE_JSON_RESPONSE}\n\nInput message: [input]"
 
 V2_AFTER_PROCESS_SUBTITLE = "Below are the subtitles obtained through speech-to-text. You need to correct any grammatical errors, noun mistakes, and convert Traditional Chinese to Simplified Chinese if present:\n\n[subtitle]"
 

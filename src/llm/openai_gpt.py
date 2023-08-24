@@ -62,7 +62,7 @@ class OpenAIGPTClient(LLMBase):
         """
         try:
             template_user = template_user_name.value
-            template_system = template_system_name.value
+            template_system = template_system_name.value if template_system_name else None
             utemplate = parse_prompt(template_user, **kwargs)
             stemplate = (
                 parse_prompt(template_system, **kwargs) if template_system else None
