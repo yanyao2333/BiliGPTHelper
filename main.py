@@ -1,4 +1,5 @@
 import asyncio
+import os
 import signal
 from enum import Enum
 
@@ -15,6 +16,11 @@ from src.utils.cache import Cache
 from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
+
+
+class ConfigError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class Status(Enum):
@@ -35,12 +41,45 @@ def flatten_dict(d):
 
 
 def config_reader():
-    with open("config.yml", "r", encoding="utf-8") as f:
+    with open(os.getenv('CONFIG_FILE', '/data/config.yaml'), "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return flatten_dict(config)
 
 
+def check_config(config: dict):
+    key_list = ["SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", "cache-path", "api-key", "model",
+                "summarize-keywords", "evaluate-keywords", "temp-dir"]
+    for key in key_list:
+        if key not in config:
+            raise ConfigError(f"配置文件中缺少{key}字段，请检查配置文件")
+        if not config[key]:
+            raise ConfigError(f"配置文件中{key}字段为空，请检查配置文件")
+    if config["whisper-enable"]:
+        if not config.get("whisper-model-size", None):
+            raise ConfigError("配置文件中whisper-model-size字段为空，请检查配置文件")
+        if not config.get("whisper-device", None):
+            raise ConfigError("配置文件中whisper-device字段为空，请检查配置文件")
+        if not config.get("whisper-model-dir", None):
+            raise ConfigError("配置文件中whisper-model-dir字段为空，请检查配置文件")
+    if len(config["summarize-keywords"]) == 0:
+        raise ConfigError("配置文件中summarize-keywords字段为空，请检查配置文件")
+
+
+def docker_prepare(config):
+    if config["whisper-enable"]:
+        config["whisper-device"] = "cpu"
+    config["cache-path"] = os.getenv('CACHE_FILE', '/data/cache.json')
+    config["temp-dir"] = os.getenv('TEMP_DIR', '/data/temp')
+    config["whisper-model-dir"] = os.getenv('WHISPER_MODELS_DIR', '/data/whisper-models')
+
+
+
 async def start_pipeline():
+    if os.getenv('RUNNING_IN_DOCKER') == "yes":
+        if not os.listdir("/data"):
+            os.system("cp -r /clone-data/* /data")
+
+
     # 初始化全局变量管理器
     _LOGGER.info("正在初始化全局变量管理器")
     value_manager = GlobalVariablesManager()
@@ -49,6 +88,17 @@ async def start_pipeline():
     _LOGGER.info("正在读取配置文件")
     config = config_reader()
     _LOGGER.info(f"读取配置文件成功，配置项：{config}")
+
+    # docker环境准备
+    if os.getenv('RUNNING_IN_DOCKER') == "yes":
+        _LOGGER.info("正在准备docker环境")
+        docker_prepare(config)
+        _LOGGER.info("docker环境准备完成")
+
+    # 检查配置文件
+    _LOGGER.info("正在检查配置文件")
+    check_config(config)
+    _LOGGER.info("检查配置文件成功")
 
     # 设置全局变量
     _LOGGER.info("正在设置全局变量")
@@ -156,7 +206,6 @@ if __name__ == "__main__":
 
     def stop_handler(sig, frame):
         global flag
-        _LOGGER.info("正在停止BiliGPTHelper，记得下次再来玩喵！")
         flag = Status.STOPPED
 
 

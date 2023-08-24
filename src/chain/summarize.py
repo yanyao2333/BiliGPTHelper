@@ -40,7 +40,8 @@ class SummarizeChain:
         self.private_queue = queue_manager.get_queue("private")
         self.value_manager = value_manager
         self.api_key = self.value_manager.get_variable("api-key")
-        self.api_base = self.value_manager.get_variable("api-base")
+        self.api_base = self.value_manager.get_variable("api-base") if self.value_manager.get_variable(
+            "api-base") else "https://api.openai.com/v1"
         self.temp_dir = (
             self.value_manager.get_variable("temp-dir")
             if self.value_manager.get_variable("temp-dir")
@@ -238,9 +239,10 @@ class SummarizeChain:
                 )
                 _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
                 # 调用openai的Completion API
-                answer, tokens = OpenAIGPTClient(
+                response = OpenAIGPTClient(
                     self.api_key, self.api_base
                 ).completion(prompt, model=self.model)
+
                 self.now_tokens += tokens
                 _LOGGER.debug(f"openai api输出内容为：{answer}")
                 _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
