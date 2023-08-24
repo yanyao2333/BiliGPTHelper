@@ -254,6 +254,8 @@ class SummarizeChain:
                     try:
                         if "False" in answer:
                             answer.replace("False", "false")  # 解决一部分因为大小写问题导致的json解析失败
+                        if "True" in answer:
+                            answer.replace("True", "true")
                         resp = json.loads(answer)
                         if resp["noneed"] is True:
                             _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
@@ -313,9 +315,14 @@ class SummarizeChain:
         """
         _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
         prompt = OpenAIGPTClient.use_template(Templates.RETRY, input=ai_answer)
-        answer, tokens = OpenAIGPTClient(self.api_key, self.api_base).completion(
+        response = OpenAIGPTClient(self.api_key, self.api_base).completion(
             prompt, model=self.model
         )
+        if response is None:
+            _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
+            return None
+        answer, tokens = response
+        _LOGGER.debug(f"openai api输出内容为：{answer}")
         self.now_tokens += tokens
         if answer:
             try:
