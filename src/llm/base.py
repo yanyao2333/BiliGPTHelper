@@ -23,11 +23,10 @@ class LLMBase:
         pass
 
     @staticmethod
-    @abc.abstractmethod
     def use_template(
-        template_user_name: Templates, template_system_name: Templates, **kwargs
+            template_user_name: Templates, template_system_name: Templates = None, **kwargs
     ) -> list | None:
-        """使用模板生成最终prompt（可能需要根据llm需求的prompt格式不同修改）
+        """使用模板生成最终prompt（最终格式可能需要根据llm所需格式不同修改，默认为openai的system、user格式）
         :param template_user_name: 用户模板名称
         :param template_system_name: 系统模板名称
         :param kwargs: 模板参数
@@ -35,10 +34,16 @@ class LLMBase:
         """
         try:
             template_user = template_user_name.value
-            template_system = template_system_name.value
+            template_system = template_system_name.value if template_system_name else None
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = parse_prompt(template_system, **kwargs)
-            prompt = build_messages(utemplate, stemplate)
+            stemplate = (
+                parse_prompt(template_system, **kwargs) if template_system else None
+            )
+            prompt = (
+                build_messages(utemplate, stemplate)
+                if stemplate
+                else build_messages(utemplate)
+            )
             _LOGGER.info(f"使用模板成功，生成的prompt为：{prompt}")
             return prompt
         except Exception as e:

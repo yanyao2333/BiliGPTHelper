@@ -1,12 +1,9 @@
-import traceback
 from typing import Tuple
 
 import openai
 
 from src.llm.base import LLMBase
-from src.llm.templates import Templates
 from src.utils.logging import LOGGER
-from src.utils.parse_prompt import parse_prompt, build_messages
 
 _LOGGER = LOGGER.bind(name="openai_gpt")
 
@@ -49,33 +46,4 @@ class OpenAIGPTClient(LLMBase):
             )
         except Exception as e:
             _LOGGER.trace(f"调用openai的Completion API失败：{e}")
-            return None
-
-    @staticmethod
-    def use_template(
-        template_user_name: Templates, template_system_name: Templates = None, **kwargs
-    ) -> list | None:
-        """使用模板生成最终prompt
-        :param template_user_name: 用户模板名称
-        :param template_system_name: 系统模板名称
-        :param kwargs: 模板参数
-        :return: 返回生成的prompt 或 None
-        """
-        try:
-            template_user = template_user_name.value
-            template_system = template_system_name.value if template_system_name else None
-            utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = (
-                parse_prompt(template_system, **kwargs) if template_system else None
-            )
-            prompt = (
-                build_messages(utemplate, stemplate)
-                if stemplate
-                else build_messages(utemplate)
-            )
-            _LOGGER.info(f"使用模板成功，生成的prompt为：{prompt}")
-            return prompt
-        except Exception as e:
-            _LOGGER.error(f"使用模板失败：{e}")
-            traceback.print_exc()
             return None
