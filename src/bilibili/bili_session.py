@@ -17,8 +17,20 @@ class BiliSession:
         self.private_queue = private_queue
 
     @staticmethod
+    async def quick_send(credential, at_items: AtItems, msg: str):
+        """快速发送私信"""
+        await session.send_msg(
+            credential,
+            at_items["item"]["private_msg_event"]["sender_uid"],
+            "1",
+            msg,
+        )
+
+
+    @staticmethod
     def build_reply_content(response: AiResponse) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
+        # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
         msg_list = []
         msg_list.append(f"【视频摘要】{response['summary']}")
         msg_list.append(

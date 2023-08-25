@@ -12,6 +12,7 @@ from bilibili_api import Credential, HEADERS, ResourceType
 
 from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
+from src.bilibili.bili_session import BiliSession
 from src.bilibili.bili_video import BiliVideo
 from src.llm.openai_gpt import OpenAIGPTClient
 from src.llm.templates import Templates
@@ -118,6 +119,7 @@ class SummarizeChain:
                         and at_items["item"]["business_id"] == 114
                 ):
                     _LOGGER.debug(f"该消息是私信消息，继续处理")
+                    await BiliSession.quick_send(self.credential, at_items, "视频已开始处理，你先别急")
                 elif (
                         at_items["item"]["type"] != "reply"
                         or at_items["item"]["business_id"] != 1

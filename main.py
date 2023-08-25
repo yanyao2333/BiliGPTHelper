@@ -6,7 +6,6 @@ from enum import Enum
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
@@ -41,7 +40,7 @@ def flatten_dict(d):
 
 
 def config_reader():
-    with open(os.getenv('CONFIG_FILE', '/data/config.yaml'), "r", encoding="utf-8") as f:
+    with open(os.getenv('CONFIG_FILE', 'config.yml'), "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return flatten_dict(config)
 
@@ -134,6 +133,7 @@ async def start_pipeline():
     # 预加载whisper模型
     _LOGGER.info("正在预加载whisper模型")
     if config["whisper-enable"]:
+        from src.asr.local_whisper import Whisper
         whisper = Whisper().load_model(
             config["whisper-model-size"],
             config["whisper-device"],
