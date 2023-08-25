@@ -47,7 +47,7 @@ def config_reader():
 
 def check_config(config: dict):
     key_list = ["SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", "cache-path", "api-key", "model",
-                "summarize-keywords", "evaluate-keywords", "temp-dir"]
+                "summarize-keywords", "evaluate-keywords", "temp-dir", "queue-dir"]
     for key in key_list:
         if key not in config:
             raise ConfigError(f"配置文件中缺少{key}字段，请检查配置文件")
@@ -74,6 +74,7 @@ def docker_prepare(config):
 
 
 async def start_pipeline():
+    _LOGGER.info("正在启动BiliGPTHelper")
     if os.getenv('RUNNING_IN_DOCKER') == "yes":
         if not os.listdir("/data"):
             os.system("cp -r /clone-data/* /data")
@@ -106,6 +107,13 @@ async def start_pipeline():
     # 初始化队列管理器
     _LOGGER.info("正在初始化队列管理器")
     queue_manager = QueueManager()
+
+    # 加载队列
+    _LOGGER.info("正在加载队列")
+    await QueueManager.load_queue(queue_manager.get_queue("reply"), config["queue-dir"] + "/reply.json")
+    await QueueManager.load_queue(queue_manager.get_queue("private"), config["queue-dir"] + "/private.json")
+    await QueueManager.load_queue(queue_manager.get_queue("summarize"), config["queue-dir"] + "/summarize.json")
+    await QueueManager.load_queue(queue_manager.get_queue("evaluate"), config["queue-dir"] + "/evaluate.json")
 
     # 初始化缓存
     _LOGGER.info(f"正在初始化缓存，缓存路径为：{config['cache-path']}")
@@ -164,17 +172,17 @@ async def start_pipeline():
 
     # 启动摘要处理链
     _LOGGER.info("正在启动摘要处理链")
-    asyncio.create_task(summarize_chain.start_chain())
+    summarize_task = asyncio.create_task(summarize_chain.start_chain())
 
     # 启动评论
     _LOGGER.info("正在启动评论处理链")
-    comment = BiliComment(queue_manager.get_queue("reply"), credential)
-    asyncio.create_task(comment.start_comment())
+    comment = BiliComment(queue_manager.get_queue("reply"), credential, config["queue-dir"])
+    comment_task = asyncio.create_task(comment.start_comment())
 
     # 启动私信
     _LOGGER.info("正在启动私信处理链")
-    private = BiliSession(credential, queue_manager.get_queue("private"))
-    asyncio.create_task(private.start_private_reply())
+    private = BiliSession(credential, queue_manager.get_queue("private"), config["queue-dir"])
+    private_task = asyncio.create_task(private.start_private_reply())
 
     # await asyncio.gather(summarize_task, comment_task)
     _LOGGER.info("摘要处理链、评论处理链、私信处理链启动完成")
@@ -195,6 +203,15 @@ async def start_pipeline():
                 sched.remove_job(job.id)
             sched.shutdown()
             _LOGGER.info("正在关闭所有的处理链")
+            summarize_task.cancel()
+            comment_task.cancel()
+            private_task.cancel()
+            _LOGGER.info("正在保存队列")
+            await save_queue(queue_manager.get_queue("reply"), config["queue-dir"] + "/reply.json")
+            await save_queue(queue_manager.get_queue("private"), config["queue-dir"] + "/private.json")
+            await save_queue(queue_manager.get_queue("summarize"), config["queue-dir"] + "/summarize.json")
+            await save_queue(queue_manager.get_queue("evaluate"), config["queue-dir"] + "/evaluate.json")
+            _LOGGER.info("完成！再见了喵！")
             break
         await asyncio.sleep(1)
 

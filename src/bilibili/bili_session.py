@@ -6,15 +6,17 @@ from bilibili_api import Credential, session, ResourceType, video
 
 from src.bilibili.bili_video import BiliVideo
 from src.utils.logging import LOGGER
+from src.utils.queue_manager import QueueManager
 from src.utils.types import AtItems, AiResponse
 
 _LOGGER = LOGGER.bind(name="bilibili-session")
 
 
 class BiliSession:
-    def __init__(self, credential: Credential, private_queue: asyncio.Queue):
+    def __init__(self, credential: Credential, private_queue: asyncio.Queue, queue_dir: str):
         self.credential = credential
         self.private_queue = private_queue
+        self.queue_dir = queue_dir
 
     @staticmethod
     async def quick_send(credential, at_items: AtItems, msg: str):
@@ -54,9 +56,11 @@ class BiliSession:
     )
     async def start_private_reply(self):
         """发送评论"""
+        item = None
         while True:
             try:
                 data: AtItems = await self.private_queue.get()
+                item = data
                 _LOGGER.debug(f"获取到新的私信任务，开始处理")
                 video_obj, _type = await BiliVideo(
                     credential=self.credential, url=data["item"]["uri"]
@@ -77,6 +81,12 @@ class BiliSession:
                         msg,
                     )
                     await asyncio.sleep(3)
+                item = None
             except asyncio.CancelledError:
                 _LOGGER.info("私信处理链关闭")
+                if item is not None:
+                    _LOGGER.info("正在保存未处理的私信任务")
+                    await QueueManager.save_single_item_to_file(
+                        self.queue_dir + "/private.json", item
+                    )
                 return

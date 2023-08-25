@@ -1,6 +1,7 @@
-from src.llm.openai_gpt import OpenAIGPTClient
-from src.utils.parse_prompt import build_messages
 import pytest
+
+from src.llm.gpt import OpenAIGPTClient
+from src.utils.parse_prompt import build_messages
 
 
 @pytest.fixture(scope="module")

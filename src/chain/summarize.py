@@ -14,7 +14,7 @@ from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_session import BiliSession
 from src.bilibili.bili_video import BiliVideo
-from src.llm.openai_gpt import OpenAIGPTClient
+from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
 from src.utils.cache import Cache
 from src.utils.global_variables_manager import GlobalVariablesManager
@@ -47,6 +47,11 @@ class SummarizeChain:
             self.value_manager.get_variable("temp-dir")
             if self.value_manager.get_variable("temp-dir")
             else os.path.join(os.getcwd(), "temp")
+        )
+        self.queue_dir = (
+            self.value_manager.get_variable("queue-dir")
+            if self.value_manager.get_variable("queue-dir")
+            else os.path.join(os.getcwd(), "queue")
         )
         self.whisper_model = (
             self.value_manager.get_variable("whisper-model-size")
@@ -103,6 +108,7 @@ class SummarizeChain:
         before_sleep=chain_callback,
     )
     async def start_chain(self):
+        item = None
         try:
             while True:
                 if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
@@ -112,6 +118,7 @@ class SummarizeChain:
                     raise asyncio.CancelledError
                 # 从队列中获取摘要
                 at_items: AtItems = await self.summarize_queue.get()
+                item = at_items
                 # _LOGGER.debug(at_items)
                 _LOGGER.info(f"摘要处理链获取到新任务了：{at_items['item']['uri']}")
                 if (
@@ -125,12 +132,14 @@ class SummarizeChain:
                         or at_items["item"]["business_id"] != 1
                 ):
                     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
+                    item = None
                     continue
                 if (
                         at_items["item"]["root_id"] != 0
                         or at_items["item"]["target_id"] != 0
                 ):
                     _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
+                    item = None
                     continue
                 # 获取视频相关信息
                 begin_time = time.perf_counter()
@@ -140,20 +149,35 @@ class SummarizeChain:
                 # _LOGGER.debug(_type)
                 if _type != ResourceType.VIDEO:
                     _LOGGER.warning(f"视频{at_items['item']['uri']}不是视频或不存在，跳过")
+                    item = None
                     continue
                 _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
                 video_info = await video.get_video_info()
                 if self.cache.get_cache(key=video_info["bvid"]):
                     _LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-                    await self.reply_queue.put(
-                        self.cache.get_cache(key=video_info["bvid"])
-                    )
+                    if (
+                            at_items["item"]["type"] == "private_msg"
+                            and at_items["item"]["business_id"] == 114
+                    ):
+                        cache = self.cache.get_cache(key=video_info["bvid"])
+                        at_items["item"]["ai_response"] = cache
+                        await self.private_queue.put(
+                            at_items
+                        )
+                    else:
+                        cache = self.cache.get_cache(key=video_info["bvid"])
+                        at_items["item"]["ai_response"] = cache
+                        await self.reply_queue.put(
+                            at_items
+                        )
+                    item = None
                     continue
                 _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
                 format_video_name = f"『{video_info['title']}』"
                 # video_pages = await video.get_video_pages() # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
                 if len(video_info["pages"]) > 1:
                     _LOGGER.info(f"视频{format_video_name}分P，跳过处理")
+                    item = None
                     continue
                 # 获取视频标签
                 video_tags = (
@@ -171,6 +195,7 @@ class SummarizeChain:
                 if len(video_info["subtitle"]["list"]) == 0:
                     if self.value_manager.get_variable("whisper-enable") is False:
                         _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
+                        item = None
                         continue
                     _LOGGER.warning(
                         f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
@@ -224,7 +249,14 @@ class SummarizeChain:
                     # 转换字幕格式
                     text = ""
                     for subtitle in resp.json()["body"]:
-                        text += subtitle["content"] + "\n"
+                        # from_time = int(subtitle["from"])
+                        # f_min, f_sec = divmod(from_time, 60)
+                        # f_format = f"{f_min}:{f_sec}"
+                        # to_time = int(subtitle["to"])
+                        # t_min, t_sec = divmod(to_time, 60)
+                        # t_format = f"{t_min}:{t_sec}"
+                        # text += f"{f_format} --> {t_format}  {subtitle['content']}\n"
+                        text += f"{subtitle['content']}\n"
                     _LOGGER.debug(f"字幕转换成功，正在使用模板生成prompt")
                 # 使用模板生成prompt
                 _LOGGER.info(
@@ -281,19 +313,22 @@ class SummarizeChain:
                                     "content"
                                 ].get_bvid()
                                 self.cache.set_cache(
-                                    key=video_info["bvid"], value=reply_data
+                                    key=video_info["bvid"], value=self.cut_items_leaves(reply_data)
                                 )
                                 _LOGGER.debug(f"设置缓存成功")
+                                item = None
                             else:
                                 _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
                                 reply_data = copy.deepcopy(at_items)
                                 reply_data["item"]["ai_response"] = resp
                                 self.reply_queue.put(reply_data)
                                 _LOGGER.debug(f"结果加入发送队列成功")
+
                                 self.cache.set_cache(
-                                    key=video_info["bvid"], value=reply_data
+                                    key=video_info["bvid"], value=self.cut_items_leaves(reply_data)
                                 )
                                 _LOGGER.debug(f"设置缓存成功")
+                                item = None
                     except Exception as e:
                         _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                         traceback.print_tb(e.__traceback__)
@@ -302,6 +337,13 @@ class SummarizeChain:
                         )
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
+            if item is not None:
+                _LOGGER.debug(f"正在保存最后一个任务到文件")
+                await QueueManager.save_single_item_to_file(self.queue_dir + "/summarize.json", item)
+
+    def cut_items_leaves(self, items: AtItems):
+        """精简at items数据，只保存ai_response，准备存入cache"""
+        return items["item"]["ai_response"]
 
     async def retry_summarize(
             self, ai_answer, at_item, format_video_name, begin_time, video_info
@@ -348,7 +390,7 @@ class SummarizeChain:
                         reply_data["item"]["private_msg_event"]["content"] = reply_data[
                             "item"
                         ]["private_msg_event"]["content"].get_bvid()
-                        self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                        self.cache.set_cache(key=video_info["bvid"], value=self.cut_items_leaves(reply_data))
                         _LOGGER.debug(f"设置缓存成功")
                     else:
                         _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
@@ -356,7 +398,7 @@ class SummarizeChain:
                         reply_data["item"]["ai_response"] = resp
                         self.reply_queue.put(reply_data)
                         _LOGGER.debug(f"结果加入发送队列成功")
-                        self.cache.set_cache(key=video_info["bvid"], value=reply_data)
+                        self.cache.set_cache(key=video_info["bvid"], value=self.cut_items_leaves(reply_data))
                         _LOGGER.debug(f"设置缓存成功")
             except Exception as e:
                 _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")

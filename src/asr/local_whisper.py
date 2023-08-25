@@ -2,7 +2,7 @@ import time
 
 import whisper as whi
 
-from src.llm.openai_gpt import OpenAIGPTClient
+from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
 from src.utils.logging import LOGGER
 
