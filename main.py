@@ -15,6 +15,8 @@ from src.utils.cache import Cache
 from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
+from src.utils.task_status_record import TaskStatusRecorder
+from src.utils.types import TaskProcessEvent
 
 
 class ConfigError(Exception):
@@ -47,7 +49,7 @@ def config_reader():
 
 def check_config(config: dict):
     key_list = ["SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", "cache-path", "api-key", "model",
-                "summarize-keywords", "evaluate-keywords", "temp-dir", "queue-dir"]
+                "summarize-keywords", "evaluate-keywords", "temp-dir", "task-status-records"]
     for key in key_list:
         if key not in config:
             raise ConfigError(f"配置文件中缺少{key}字段，请检查配置文件")
@@ -108,12 +110,9 @@ async def start_pipeline():
     _LOGGER.info("正在初始化队列管理器")
     queue_manager = QueueManager()
 
-    # 加载队列
-    _LOGGER.info("正在加载队列")
-    await QueueManager.load_queue(queue_manager.get_queue("reply"), config["queue-dir"] + "/reply.json")
-    await QueueManager.load_queue(queue_manager.get_queue("private"), config["queue-dir"] + "/private.json")
-    await QueueManager.load_queue(queue_manager.get_queue("summarize"), config["queue-dir"] + "/summarize.json")
-    await QueueManager.load_queue(queue_manager.get_queue("evaluate"), config["queue-dir"] + "/evaluate.json")
+    # 初始化任务状态管理器
+    _LOGGER.info(f"正在初始化任务状态管理器，位置：{config['task-status-records']}")
+    task_status_recorder = TaskStatusRecorder(config["task-status-records"])
 
     # 初始化缓存
     _LOGGER.info(f"正在初始化缓存，缓存路径为：{config['cache-path']}")
@@ -142,20 +141,21 @@ async def start_pipeline():
     _LOGGER.info("正在预加载whisper模型")
     if config["whisper-enable"]:
         from src.asr.local_whisper import Whisper
-        whisper = Whisper().load_model(
+        whisper_obj = Whisper()
+        whisper_model_obj = whisper_obj.load_model(
             config["whisper-model-size"],
             config["whisper-device"],
             config["whisper-model-dir"],
         )
     else:
         _LOGGER.info("whisper未启用")
-        whisper = None
+        whisper_model_obj = None
+        whisper_obj = None
 
     # 初始化摘要处理链
     _LOGGER.info("正在初始化摘要处理链")
-    summarize_chain = SummarizeChain(
-        queue_manager, value_manager, credential, cache, whisper
-    )
+    summarize_chain = SummarizeChain(queue_manager, value_manager, credential, cache, whisper_model_obj, whisper_obj,
+                                     task_status_recorder)
 
     # 启动侦听器
     _LOGGER.info("正在启动at侦听器")
@@ -176,12 +176,12 @@ async def start_pipeline():
 
     # 启动评论
     _LOGGER.info("正在启动评论处理链")
-    comment = BiliComment(queue_manager.get_queue("reply"), credential, config["queue-dir"])
+    comment = BiliComment(queue_manager.get_queue("reply"), credential)
     comment_task = asyncio.create_task(comment.start_comment())
 
     # 启动私信
     _LOGGER.info("正在启动私信处理链")
-    private = BiliSession(credential, queue_manager.get_queue("private"), config["queue-dir"])
+    private = BiliSession(credential, queue_manager.get_queue("private"))
     private_task = asyncio.create_task(private.start_private_reply())
 
     # await asyncio.gather(summarize_task, comment_task)
@@ -202,16 +202,13 @@ async def start_pipeline():
             for job in sched.get_jobs():
                 sched.remove_job(job.id)
             sched.shutdown()
+            task_status_recorder.save_queue(queue_manager.get_queue("summarize"), event=TaskProcessEvent.SUMMARIZE)
             _LOGGER.info("正在关闭所有的处理链")
             summarize_task.cancel()
             comment_task.cancel()
             private_task.cancel()
             _LOGGER.info("正在保存队列")
-            await save_queue(queue_manager.get_queue("reply"), config["queue-dir"] + "/reply.json")
-            await save_queue(queue_manager.get_queue("private"), config["queue-dir"] + "/private.json")
-            await save_queue(queue_manager.get_queue("summarize"), config["queue-dir"] + "/summarize.json")
-            await save_queue(queue_manager.get_queue("evaluate"), config["queue-dir"] + "/evaluate.json")
-            _LOGGER.info("完成！再见了喵！")
+            _LOGGER.info("再见了喵！")
             break
         await asyncio.sleep(1)
 

@@ -34,5 +34,4 @@ whisper:
 
 temp-dir: "/data/temp" # 主要用于下载视频音频生成字幕，如果更改要映射出来
 cache-path: "/data/cache.json" # 用于缓存已经处理过的视频，如果更改要映射出来
-queue-dir: "/data/queue" # 用于缓存待处理的视频，如果更改要映射出来，不能留空
 task_status_records: "/data/records.json" # 用于记录任务状态，如果更改要映射出来，不能留空

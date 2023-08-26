@@ -1,4 +1,5 @@
-from typing import TypedDict, List, Optional, Union
+from enum import Enum
+from typing import TypedDict, List, Union, NotRequired, Dict
 
 from bilibili_api import Picture
 from bilibili_api.video import Video
@@ -63,6 +64,22 @@ class AiResponse(TypedDict):
     noneed: bool  # 是否需要摘要
 
 
+class TaskProcessStage(Enum):
+    """视频处理阶段"""
+    IN_QUEUE = "in_queue"  # 在队列中
+    PREPROCESS = "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
+    WAITING_LLM_RESPONSE = "waiting_llm_response"  # 等待llm的回复 这个阶段应该重新加载字幕或从items中的whisper_subtitle节点读取
+    WAITING_SEND = "waiting_send"  # 等待发送 这是llm回复后的阶段，需要解析llm的回复，然后发送
+    WAITING_PUSH_TO_CACHE = "waiting_push_to_cache"  # 等待推送到缓存（就是发送后）
+    WAITING_RETRY = "waiting_retry"  # 等待重试（ai返回数据格式不对）
+    END = "end"  # 结束 按理来说应该删除，但为了后期统计，保留
+
+
+class TaskProcessEvent(Enum):
+    SUMMARIZE = "summarize"
+    EVALUATE = "evaluate"
+
+
 class AtItem(TypedDict):
     type: str  # 基本都为reply
     business: str  # 基本都为评论
@@ -76,9 +93,13 @@ class AtItem(TypedDict):
     root_id: int  # 暂时还没出现过
     native_url: str  # 评论链接，包含根评论id和父评论id
     at_details: List[dict]  # at的人的信息，常规的个人信息dict
-    ai_response: Optional[AiResponse]  # AI回复的内容，需要等到处理完才能获取到
-    is_private_msg: Optional[bool]  # 是否为私信
-    private_msg_event: Optional[PrivateMsg]  # 私信事件
+    ai_response: NotRequired[AiResponse | str]  # AI回复的内容，需要等到处理完才能获取到dict，否则为还没处理的str
+    is_private_msg: NotRequired[bool]  # 是否为私信
+    private_msg_event: NotRequired[PrivateMsg]  # 私信事件
+    whisper_subtitle: NotRequired[str]  # whisper字幕
+    stage: NotRequired[TaskProcessStage]  # 视频处理阶段
+    event: NotRequired[TaskProcessEvent]  # 视频处理事件
+    uuid: NotRequired[str]  # 视频处理uuid
 
 
 class AtItems(TypedDict):
@@ -93,3 +114,28 @@ class AtAPIResponse(TypedDict):
 
     cursor: AtCursor
     items: List[AtItems]
+
+
+class TaskProcessEndReason(Enum):
+    """视频处理结束原因"""
+    NORMAL = "normal"  # 正常结束
+    ERROR = "error"  # 错误结束
+    NONEED = "noneed"  # AI认为这个视频不需要处理
+
+
+class TaskStatus(TypedDict):
+    """视频记录"""
+    gmt_create: int
+    gmt_end: NotRequired[int]
+    event: TaskProcessEvent
+    stage: TaskProcessStage
+    data: AtItems
+    end_reason: NotRequired[TaskProcessEndReason]
+    error_msg: NotRequired[str]
+    use_whisper: NotRequired[bool]
+    if_retry: NotRequired[bool]
+
+
+class TaskStatusFile(TypedDict):
+    tasks: Dict[str, TaskStatus]  # 键为uuid
+    queue: List[AtItems]

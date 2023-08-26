@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 import whisper as whi
@@ -31,31 +32,12 @@ class Whisper:
             self.load_model()
         return self.model
 
-    @staticmethod
-    def whisper_audio(
-            model,
-            audio_path,
-            after_process=False,
-            prompt=None,
-            openai_api_key=None,
-            openai_endpoint=None,
-    ) -> str:
-        """
-        使用whisper转写音频
-        :param model: whisper模型
-        :param audio_path: 音频路径
-        :param after_process: 是否使用gpt-3.5-turbo后处理
-        :param prompt: 提交给whisper的prompt
-        :param openai_api_key: 如果要进行后处理需要提供
-        :param openai_endpoint: 如果要进行后处理可根据需要提供
-        :return: 字幕文本
-        """
+    def _run_whisper_audio(
+            self, model, audio_path, after_process, prompt, openai_api_key, openai_endpoint
+    ):
         begin_time = time.perf_counter()
         _LOGGER.info(f"开始转写 {audio_path}")
-        result = whi.transcribe(
-            model, audio_path, initial_prompt=prompt
-        )  # 存在各种包括但不限于标点丢失、简繁中转换，语气词丢失等问题，后期尝试使用llm后处理
-        text = result["text"]
+        text = whi.transcribe(model, audio_path, initial_prompt=prompt)
         _LOGGER.debug(f"转写成功")
         if after_process:
             if openai_api_key:
@@ -77,3 +59,27 @@ class Whisper:
         time_elapsed = time.perf_counter() - begin_time
         _LOGGER.info(f"字幕转译完成，共用时{time_elapsed}s")
         return text
+
+    async def whisper_audio(
+            self,  # 添加self参数以访问线程池
+            model,
+            audio_path,
+            after_process=False,
+            prompt=None,
+            openai_api_key=None,
+            openai_endpoint=None,
+    ) -> str:
+        loop = asyncio.get_event_loop()
+
+        result = await loop.run_in_executor(
+            None,  # None 用于默认的 ThreadPoolExecutor
+            self._run_whisper_audio,
+            model,
+            audio_path,
+            after_process,
+            prompt,
+            openai_api_key,
+            openai_endpoint,
+        )
+
+        return result

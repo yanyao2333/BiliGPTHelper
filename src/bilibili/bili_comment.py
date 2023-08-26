@@ -19,10 +19,9 @@ class RiskControlFindError(Exception):
 
 
 class BiliComment:
-    def __init__(self, comment_queue: Queue, credential, queue_dir: str):
+    def __init__(self, comment_queue: Queue, credential):
         self.comment_queue = comment_queue
         self.credential = credential
-        self.queue_dir = queue_dir
 
     @staticmethod
     async def get_random_comment(
