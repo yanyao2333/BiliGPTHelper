@@ -8,7 +8,6 @@ from bilibili_api import comment, ResourceType, video
 
 from src.bilibili.bili_video import BiliVideo
 from src.utils.logging import LOGGER
-from src.utils.queue_manager import QueueManager
 from src.utils.types import AtItems, AiResponse
 
 _LOGGER = LOGGER.bind(name="bilibili-comment")
@@ -32,8 +31,17 @@ class BiliComment:
             type_=comment.CommentResourceType.VIDEO,
             page_index=1,
             order=comment.OrderType.LIKE,
-    ):
-        """随机获取几条热评，直接生成评论prompt string"""
+    ) -> str | None:
+        """
+        随机获取几条热评，直接生成评论prompt string
+
+        :param aid: 视频ID
+        :param credential: 身份凭证
+        :param type_: 评论资源类型
+        :param page_index: 评论页数索引
+        :param order: 评论排序方式
+        :return: 拼接的评论字符串
+        """
         if str(aid).startswith("av"):
             aid = aid[2:]
         _LOGGER.debug(f"正在获取视频{aid}的评论列表")
@@ -93,12 +101,23 @@ class BiliComment:
         return comment_str
 
     @staticmethod
-    def build_reply_content(response: AiResponse):
-        """构建回复内容"""
+    def build_reply_content(response: AiResponse) -> str:
+        """
+        构建回复内容
+
+        :param response: AI响应内容
+        :return: 回复内容字符串
+        """
         return f"【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}\n\n欢迎在github上给本项目点个star！ https://github.com/yanyao2333/BiliGPTHelper"
+
 
     @staticmethod
     def chain_callback(retry_state):
+        """
+        回调
+
+        :param retry_state: 重试状态
+        """
         exception = retry_state.outcome.exception()
         _LOGGER.error(f"捕获到错误：{exception}")
         traceback.print_tb(retry_state.outcome.exception().__traceback__)
@@ -112,7 +131,6 @@ class BiliComment:
     )
     async def start_comment(self):
         """发送评论"""
-        item = None
         while True:
             risk_control_count = 0
             data = None
@@ -120,21 +138,17 @@ class BiliComment:
                 try:
                     if data is not None:
                         _LOGGER.debug(f"继续处理上一次失败的评论任务")
-                        item = data
                     if data is None:
                         data: AtItems = await self.comment_queue.get()
-                        item = data
                         _LOGGER.debug(f"获取到新的评论任务，开始处理")
                     video_obj, _type = await BiliVideo(
                         credential=self.credential, url=data["item"]["uri"]
                     ).get_video_obj()
                     if not video_obj:
                         _LOGGER.warning(f"视频{data['item']['uri']}不存在")
-                        item = None
                         return False
                     if _type != ResourceType.VIDEO:
                         _LOGGER.warning(f"视频{data['item']['uri']}不是视频，跳过处理")
-                        item = None
                         return False
                     video_obj: video.Video
                     aid = video_obj.get_aid()
@@ -154,7 +168,6 @@ class BiliComment:
                         _LOGGER.debug(resp)
                         _LOGGER.debug(f"发送评论成功，休息30秒")
                         await asyncio.sleep(30)
-                        item = None
                         break  # 评论成功，退出当前任务的重试循环
                     else:
                         _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
@@ -162,7 +175,6 @@ class BiliComment:
                         if risk_control_count >= 3:
                             _LOGGER.warning(f"连续3次风控，跳过当前任务处理下一个")
                             data = None
-                            item = None
                             break
                         else:
                             raise RiskControlFindError
@@ -171,11 +183,4 @@ class BiliComment:
                     await asyncio.sleep(60)
                 except asyncio.CancelledError:
                     _LOGGER.info("评论处理链关闭")
-                    if item is not None:
-                        _LOGGER.debug(f"正在保存正在处理的评论任务")
-                        await QueueManager.save_single_item_to_file(
-                            self.queue_dir + "/reply.json", item
-                        )
                     return
-            if risk_control_count >= 3:
-                risk_control_count = 0

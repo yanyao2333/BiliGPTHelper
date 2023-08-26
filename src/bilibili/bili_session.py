@@ -6,17 +6,21 @@ from bilibili_api import Credential, session, ResourceType, video
 
 from src.bilibili.bili_video import BiliVideo
 from src.utils.logging import LOGGER
-from src.utils.queue_manager import QueueManager
 from src.utils.types import AtItems, AiResponse
 
 _LOGGER = LOGGER.bind(name="bilibili-session")
 
 
 class BiliSession:
-    def __init__(self, credential: Credential, private_queue: asyncio.Queue, queue_dir: str):
+    def __init__(self, credential: Credential, private_queue: asyncio.Queue):
+        """
+        初始化BiliSession类
+
+        :param credential: B站凭证
+        :param private_queue: 私信队列
+        """
         self.credential = credential
         self.private_queue = private_queue
-        self.queue_dir = queue_dir
 
     @staticmethod
     async def quick_send(credential, at_items: AtItems, msg: str):
@@ -28,17 +32,13 @@ class BiliSession:
             msg,
         )
 
-
     @staticmethod
     def build_reply_content(response: AiResponse) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
         # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
-        msg_list = []
-        msg_list.append(f"【视频摘要】{response['summary']}")
-        msg_list.append(
-            f"【咱对本次生成内容的自我评分】{response['score']}分\n\n【咱的思考】{response['thinking']}\n\n另外欢迎在github上给本项目点个star！"
-        )
-        msg_list.append("https://github.com/yanyao2333/BiliGPTHelper")
+        msg_list = [f"【视频摘要】{response['summary']}",
+                    f"【咱对本次生成内容的自我评分】{response['score']}分\n\n【咱的思考】{response['thinking']}\n\n另外欢迎在github上给本项目点个star！",
+                    "https://github.com/yanyao2333/BiliGPTHelper"]
         return msg_list
 
     @staticmethod
@@ -56,11 +56,9 @@ class BiliSession:
     )
     async def start_private_reply(self):
         """发送评论"""
-        item = None
         while True:
             try:
                 data: AtItems = await self.private_queue.get()
-                item = data
                 _LOGGER.debug(f"获取到新的私信任务，开始处理")
                 video_obj, _type = await BiliVideo(
                     credential=self.credential, url=data["item"]["uri"]
@@ -81,12 +79,6 @@ class BiliSession:
                         msg,
                     )
                     await asyncio.sleep(3)
-                item = None
             except asyncio.CancelledError:
                 _LOGGER.info("私信处理链关闭")
-                if item is not None:
-                    _LOGGER.info("正在保存未处理的私信任务")
-                    await QueueManager.save_single_item_to_file(
-                        self.queue_dir + "/private.json", item
-                    )
                 return
