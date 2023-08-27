@@ -42,14 +42,26 @@ def flatten_dict(d):
 
 
 def config_reader():
-    with open(os.getenv('CONFIG_FILE', 'config.yml'), "r", encoding="utf-8") as f:
+    with open(os.getenv("CONFIG_FILE", "config.yml"), "r", encoding="utf-8") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     return flatten_dict(config)
 
 
 def check_config(config: dict):
-    key_list = ["SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", "cache-path", "api-key", "model",
-                "summarize-keywords", "evaluate-keywords", "temp-dir", "task-status-records"]
+    key_list = [
+        "SESSDATA",
+        "bili_jct",
+        "buvid3",
+        "dedeuserid",
+        "ac_time_value",
+        "cache-path",
+        "api-key",
+        "model",
+        "summarize-keywords",
+        "evaluate-keywords",
+        "temp-dir",
+        "task-status-records",
+    ]
     for key in key_list:
         if key not in config:
             raise ConfigError(f"配置文件中缺少{key}字段，请检查配置文件")
@@ -69,18 +81,18 @@ def check_config(config: dict):
 def docker_prepare(config):
     if config["whisper-enable"]:
         config["whisper-device"] = "cpu"
-    config["cache-path"] = os.getenv('CACHE_FILE', '/data/cache.json')
-    config["temp-dir"] = os.getenv('TEMP_DIR', '/data/temp')
-    config["whisper-model-dir"] = os.getenv('WHISPER_MODELS_DIR', '/data/whisper-models')
-
+    config["cache-path"] = os.getenv("CACHE_FILE", "/data/cache.json")
+    config["temp-dir"] = os.getenv("TEMP_DIR", "/data/temp")
+    config["whisper-model-dir"] = os.getenv(
+        "WHISPER_MODELS_DIR", "/data/whisper-models"
+    )
 
 
 async def start_pipeline():
     _LOGGER.info("正在启动BiliGPTHelper")
-    if os.getenv('RUNNING_IN_DOCKER') == "yes":
+    if os.getenv("RUNNING_IN_DOCKER") == "yes":
         if not os.listdir("/data"):
             os.system("cp -r /clone-data/* /data")
-
 
     # 初始化全局变量管理器
     _LOGGER.info("正在初始化全局变量管理器")
@@ -92,7 +104,7 @@ async def start_pipeline():
     _LOGGER.info(f"读取配置文件成功，配置项：{config}")
 
     # docker环境准备
-    if os.getenv('RUNNING_IN_DOCKER') == "yes":
+    if os.getenv("RUNNING_IN_DOCKER") == "yes":
         _LOGGER.info("正在准备docker环境")
         docker_prepare(config)
         _LOGGER.info("docker环境准备完成")
@@ -141,6 +153,7 @@ async def start_pipeline():
     _LOGGER.info("正在预加载whisper模型")
     if config["whisper-enable"]:
         from src.asr.local_whisper import Whisper
+
         whisper_obj = Whisper()
         whisper_model_obj = whisper_obj.load_model(
             config["whisper-model-size"],
@@ -154,8 +167,15 @@ async def start_pipeline():
 
     # 初始化摘要处理链
     _LOGGER.info("正在初始化摘要处理链")
-    summarize_chain = SummarizeChain(queue_manager, value_manager, credential, cache, whisper_model_obj, whisper_obj,
-                                     task_status_recorder)
+    summarize_chain = SummarizeChain(
+        queue_manager,
+        value_manager,
+        credential,
+        cache,
+        whisper_model_obj,
+        whisper_obj,
+        task_status_recorder,
+    )
 
     # 启动侦听器
     _LOGGER.info("正在启动at侦听器")
@@ -204,7 +224,9 @@ async def start_pipeline():
             sched.shutdown()
             listen.close_private_listen()
             _LOGGER.info("正在保存队列任务信息")
-            task_status_recorder.save_queue(queue_manager.get_queue("summarize"), event=TaskProcessEvent.SUMMARIZE)
+            task_status_recorder.save_queue(
+                queue_manager.get_queue("summarize"), event=TaskProcessEvent.SUMMARIZE
+            )
             _LOGGER.info("正在关闭所有的处理链")
             summarize_task.cancel()
             comment_task.cancel()
@@ -217,11 +239,9 @@ if __name__ == "__main__":
     flag = Status.RUNNING
     _LOGGER = LOGGER.bind(name="main")
 
-
     def stop_handler(sig, frame):
         global flag
         flag = Status.STOPPED
-
 
     signal.signal(signal.SIGINT, stop_handler)
     signal.signal(signal.SIGTERM, stop_handler)

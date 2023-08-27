@@ -52,7 +52,9 @@ class OpenAIGPTClient(LLMBase):
             traceback.print_tb(e.__traceback__)
             return None
 
-    async def completion(self, prompt, model="gpt-3.5-turbo", **kwargs) -> Tuple[str, int] | None:
+    async def completion(
+            self, prompt, model="gpt-3.5-turbo", **kwargs
+    ) -> Tuple[str, int] | None:
         """调用openai的Completion API
         :param model: 模型名称
         :param prompt: 输入的文本（请确保格式化为openai的prompt格式）

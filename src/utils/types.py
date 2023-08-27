@@ -66,9 +66,12 @@ class AiResponse(TypedDict):
 
 class TaskProcessStage(Enum):
     """视频处理阶段"""
+
     IN_QUEUE = "in_queue"  # 在队列中
     PREPROCESS = "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
-    WAITING_LLM_RESPONSE = "waiting_llm_response"  # 等待llm的回复 这个阶段应该重新加载字幕或从items中的whisper_subtitle节点读取
+    WAITING_LLM_RESPONSE = (
+        "waiting_llm_response"  # 等待llm的回复 这个阶段应该重新加载字幕或从items中的whisper_subtitle节点读取
+    )
     WAITING_SEND = "waiting_send"  # 等待发送 这是llm回复后的阶段，需要解析llm的回复，然后发送
     WAITING_PUSH_TO_CACHE = "waiting_push_to_cache"  # 等待推送到缓存（就是发送后）
     WAITING_RETRY = "waiting_retry"  # 等待重试（ai返回数据格式不对）
@@ -118,6 +121,7 @@ class AtAPIResponse(TypedDict):
 
 class TaskProcessEndReason(Enum):
     """视频处理结束原因"""
+
     NORMAL = "normal"  # 正常结束
     ERROR = "error"  # 错误结束
     NONEED = "noneed"  # AI认为这个视频不需要处理
@@ -125,6 +129,7 @@ class TaskProcessEndReason(Enum):
 
 class TaskStatus(TypedDict):
     """视频记录"""
+
     gmt_create: int
     gmt_end: NotRequired[int]
     event: TaskProcessEvent

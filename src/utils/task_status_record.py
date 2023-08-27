@@ -46,7 +46,11 @@ class TaskStatusRecorder:
             self.video_status = {"tasks": self.tasks, "queue": self.queue}
             json.dump(self.video_status, f, ensure_ascii=False, indent=4)
 
-    def get_record_by_stage(self, stage: TaskProcessStage, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE):
+    def get_record_by_stage(
+            self,
+            stage: TaskProcessStage,
+            event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
+    ):
         """根据stage获取记录"""
         records = []
         for record in self.tasks.values():
@@ -54,7 +58,13 @@ class TaskStatusRecorder:
                 records.append(record)
         return records
 
-    def create_record(self, data: AtItems, stage: TaskProcessStage, event: TaskProcessEvent, gmt_create: int):
+    def create_record(
+            self,
+            data: AtItems,
+            stage: TaskProcessStage,
+            event: TaskProcessEvent,
+            gmt_create: int,
+    ):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
         _uuid = str(uuid.uuid4())
         record: TaskStatus = {
@@ -87,15 +97,24 @@ class TaskStatusRecorder:
         self.save()
         return True
 
-    def save_queue(self, queue: asyncio.Queue, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE):
+    def save_queue(
+            self, queue: asyncio.Queue, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
+    ):
         """保存队列"""
         queue_list = []
         while not queue.empty():
             item: AtItems = queue.get_nowait()
             item["item"]["stage"] = TaskProcessStage.IN_QUEUE.value
             item["item"]["event"] = event.value
-            if isinstance(item["item"].get("private_msg_event", {"content": None}).get("content", None), Video):
-                item["item"]["private_msg_event"]["content"] = item["item"]["private_msg_event"]["content"].get_bvid()
+            if isinstance(
+                    item["item"]
+                            .get("private_msg_event", {"content": None})
+                            .get("content", None),
+                    Video,
+            ):
+                item["item"]["private_msg_event"]["content"] = item["item"][
+                    "private_msg_event"
+                ]["content"].get_bvid()
             queue_list.append(item)
         self.queue = queue_list
         self.save()
