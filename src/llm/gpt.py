@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from functools import partial
 from typing import Tuple
 
@@ -47,7 +48,8 @@ class OpenAIGPTClient(LLMBase):
                 resp["usage"]["total_tokens"],
             )
         except Exception as e:
-            _LOGGER.trace(f"调用openai的Completion API失败：{e}")
+            _LOGGER.error(f"调用openai的Completion API失败：{e}")
+            traceback.print_tb(e.__traceback__)
             return None
 
     async def completion(self, prompt, model="gpt-3.5-turbo", **kwargs) -> Tuple[str, int] | None:
@@ -59,4 +61,5 @@ class OpenAIGPTClient(LLMBase):
         """
         loop = asyncio.get_event_loop()
         bound_func = partial(self._sync_completion, prompt, model, **kwargs)
-        return await loop.run_in_executor(None, bound_func)
+        res = await loop.run_in_executor(None, bound_func)
+        return res

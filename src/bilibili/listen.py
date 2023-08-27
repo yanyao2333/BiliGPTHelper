@@ -93,7 +93,7 @@ class Listen:
         self.sched.add_job(
             self.listen_at,
             trigger="interval",
-            seconds=6,  # 有新任务都会一次性提交，时间无所谓
+            seconds=20,  # 有新任务都会一次性提交，时间无所谓
             id="listen_at",
             max_instances=3,
             next_run_time=datetime.now(),
