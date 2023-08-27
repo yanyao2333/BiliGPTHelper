@@ -1,3 +1,5 @@
+import asyncio
+from functools import partial
 from typing import Tuple
 
 import openai
@@ -22,7 +24,7 @@ class OpenAIGPTClient(LLMBase):
     def get_openai(self):
         return self.openai
 
-    def completion(
+    def _sync_completion(
         self, prompt, model="gpt-3.5-turbo", **kwargs
     ) -> Tuple[str, int] | None:
         """调用openai的Completion API
@@ -47,3 +49,14 @@ class OpenAIGPTClient(LLMBase):
         except Exception as e:
             _LOGGER.trace(f"调用openai的Completion API失败：{e}")
             return None
+
+    async def completion(self, prompt, model="gpt-3.5-turbo", **kwargs) -> Tuple[str, int] | None:
+        """调用openai的Completion API
+        :param model: 模型名称
+        :param prompt: 输入的文本（请确保格式化为openai的prompt格式）
+        :param kwargs: 其他参数
+        :return: 返回生成的文本和token总数 或 None
+        """
+        loop = asyncio.get_event_loop()
+        bound_func = partial(self._sync_completion, prompt, model, **kwargs)
+        return await loop.run_in_executor(None, bound_func)

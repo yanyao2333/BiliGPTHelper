@@ -220,6 +220,19 @@ class SummarizeChain:
             text += f"{subtitle['content']}\n"
         return text
 
+    async def async_ffmpeg(self, temp_dir, video_info):
+        loop = asyncio.get_event_loop()
+
+        def run_ffmpeg():
+            (
+                ffmpeg
+                .input(f"{temp_dir}/{video_info['aid']} temp.m4s")
+                .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
+                .run(overwrite_output=True)
+            )
+
+        await loop.run_in_executor(None, run_ffmpeg)
+
     async def _get_subtitle_by_whisper(self, video_info, video: BiliVideo, _uuid: str, format_video_name,
                                        at_items: AtItems) -> bool | str:
         _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
@@ -249,11 +262,12 @@ class SummarizeChain:
                     f.write(resp.content)
             _LOGGER.debug(f"视频中的音频流下载成功，正在转换音频格式")
             # 转换音频格式
-            (
-                ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
-                .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
-                .run(overwrite_output=True)
-            )
+            # (
+            #     ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
+            #     .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
+            #     .run(overwrite_output=True)
+            # )
+            await self.async_ffmpeg(temp_dir, video_info)
             _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
             # 使用whisper转写音频
             audio_path = f"{temp_dir}/{video_info['aid']} temp.mp3"
@@ -410,7 +424,7 @@ class SummarizeChain:
                     )
                     _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
                     # 调用openai的Completion API
-                    response = OpenAIGPTClient(
+                    response = await OpenAIGPTClient(
                         self.api_key, self.api_base
                     ).completion(prompt, model=self.model)
                     if response is None:
@@ -447,6 +461,9 @@ class SummarizeChain:
                             resp = json.loads(answer)
                             if resp["noneed"] is True:
                                 _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
+                                await BiliSession.quick_send(self.credential, at_items,
+                                                             f"AI觉得你的视频不需要处理，下面是AI返回的原内容：")
+                                await BiliSession.quick_send(self.credential, at_items, answer)
                                 self.task_status_recorder.update_record(_item_uuid, stage=TaskProcessStage.END,
                                                                         end_reason=TaskProcessEndReason.NONEED,
                                                                         gmt_end=int(time.time()))
@@ -507,7 +524,7 @@ class SummarizeChain:
         """
         _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
         prompt = OpenAIGPTClient.use_template(Templates.RETRY, input=ai_answer)
-        response = OpenAIGPTClient(self.api_key, self.api_base).completion(
+        response = await OpenAIGPTClient(self.api_key, self.api_base).completion(
             prompt, model=self.model
         )
         if response is None:
@@ -521,6 +538,9 @@ class SummarizeChain:
                 resp = json.loads(answer)
                 if resp["noneed"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
+                    await BiliSession.quick_send(self.credential, at_item,
+                                                 f"AI觉得你的视频不需要处理，下面是AI返回的原内容：")
+                    await BiliSession.quick_send(self.credential, at_item, answer)
                     return None
                 else:
                     _LOGGER.info(

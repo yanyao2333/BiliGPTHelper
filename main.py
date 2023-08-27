@@ -202,13 +202,13 @@ async def start_pipeline():
             for job in sched.get_jobs():
                 sched.remove_job(job.id)
             sched.shutdown()
+            listen.close_private_listen()
+            _LOGGER.info("正在保存队列任务信息")
             task_status_recorder.save_queue(queue_manager.get_queue("summarize"), event=TaskProcessEvent.SUMMARIZE)
             _LOGGER.info("正在关闭所有的处理链")
             summarize_task.cancel()
             comment_task.cancel()
             private_task.cancel()
-            _LOGGER.info("正在保存队列")
-            _LOGGER.info("再见了喵！")
             break
         await asyncio.sleep(1)
 

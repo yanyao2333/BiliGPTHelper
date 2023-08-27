@@ -23,6 +23,7 @@ class Listen:
             value_manager: GlobalVariablesManager,
             sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
     ):
+        self.sess = None
         self.credential = credential
         self.summarize_queue = queue_manager.get_queue("summarize")
         self.evaluate_queue = queue_manager.get_queue("evaluate")
@@ -92,7 +93,7 @@ class Listen:
         self.sched.add_job(
             self.listen_at,
             trigger="interval",
-            seconds=20,  # 有新任务都会一次性提交，时间无所谓
+            seconds=6,  # 有新任务都会一次性提交，时间无所谓
             id="listen_at",
             max_instances=3,
             next_run_time=datetime.now(),
@@ -171,7 +172,12 @@ class Listen:
 
     async def listen_private(self):
         # TODO 将轮询功能从bilibili_api库分离，重写
-        sess = session.Session(self.credential)
-        await sess.run()
-        sess.add_event_listener(session.Event.SHARE_VIDEO, self.on_receive)  # type: ignore
-        sess.add_event_listener(session.Event.TEXT, self.on_receive)  # type: ignore
+        self.sess = session.Session(self.credential)
+        self.sess.logger = _LOGGER
+        await self.sess.run()
+        self.sess.add_event_listener(session.Event.SHARE_VIDEO, self.on_receive)  # type: ignore
+        self.sess.add_event_listener(session.Event.TEXT, self.on_receive)  # type: ignore
+
+    def close_private_listen(self):
+        self.sess.close()
+        _LOGGER.info("私聊侦听已关闭")
