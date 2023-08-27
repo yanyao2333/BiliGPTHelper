@@ -4,10 +4,11 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 
-RUN mkdir -p /clone-data/temp /clone-data/whisper-models /clone-data/queue \
-    && touch /clone-data/cache.json \
-    && apt-get update \
-    && apt-get install -y  ffmpeg \
+RUN mkdir -p /clone-data/temp /clone-data/whisper-models /clone-data/queue /clone-data/statistics \
+    && touch /clone-data/cache.json
+
+RUN apt-get update \
+    && apt-get install -y  ffmpeg fonts-wqy-zenhei \
     && apt-get clean \
     && pip install --no-cache-dir -r requirements.txt
 

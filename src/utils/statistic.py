@@ -7,13 +7,21 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-def run(output_dir, data):
-    matplotlib.rcParams["font.sans-serif"] = ["SimHei"]
-    matplotlib.rcParams["axes.unicode_minus"] = False
+def run_statistic(output_dir, data):
+    if os.getenv("RUNNING_IN_DOCKER") == "yes":
+        matplotlib.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei']
+        matplotlib.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+    else:
+        matplotlib.rcParams["font.sans-serif"] = ["SimHei"]
+        matplotlib.rcParams["axes.unicode_minus"] = False
 
     # Initialize directories and counters
     output_folder = output_dir
-    os.makedirs(output_folder, exist_ok=True)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    else:
+        for file in os.listdir(output_folder):
+            os.remove(os.path.join(output_folder, file))
 
     # Mapping end reasons to readable names
     end_reason_map = {"normal": "正常结束", "error": "错误结束", "noneed": "AI认为不需要摘要"}
@@ -82,6 +90,8 @@ def run(output_dir, data):
             bar.get_y() + bar.get_height() / 2,
             str(int(bar.get_width())),
         )
+
+    plt.tight_layout()
 
     plt.savefig(f"{output_folder}/错误原因排名竖状图.png")
 
@@ -157,4 +167,4 @@ if __name__ == "__main__":
     with open(r"D:\biligpt\records.json", "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    run(r"./statistics", data)
+    run_statistic(r"../../statistics", data)

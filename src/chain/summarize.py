@@ -245,8 +245,6 @@ class SummarizeChain:
         def run_ffmpeg():
             (
                 ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
-                .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
-                .run(overwrite_output=True)
             )
 
         await loop.run_in_executor(None, run_ffmpeg)

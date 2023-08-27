@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import signal
 from enum import Enum
@@ -15,6 +16,7 @@ from src.utils.cache import Cache
 from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
+from src.utils.statistic import run_statistic
 from src.utils.task_status_record import TaskStatusRecorder
 from src.utils.types import TaskProcessEvent
 
@@ -231,6 +233,10 @@ async def start_pipeline():
             summarize_task.cancel()
             comment_task.cancel()
             private_task.cancel()
+            _LOGGER.info("正在生成本次运行的统计报告")
+            with open(config["task-status-records"], "r", encoding="utf-8") as f:
+                data = json.load(f)
+            run_statistic(config["statistics-dir"] if config["statistics-dir"] else "./statistics", data)
             break
         await asyncio.sleep(1)
 
