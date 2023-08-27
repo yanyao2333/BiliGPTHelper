@@ -104,4 +104,44 @@ ban，申诉后即使提示恢复但也没有显示。所以我没办法测试at
 
 ### ❤ 感谢
 
-[Nemo2011/bilibili-api](https://github.com/Nemo2011/bilibili-api/) | 封装b站api库  
+[Nemo2011/bilibili-api](https://github.com/Nemo2011/bilibili-api/) | 封装b站api库
+
+### 📚 大致流程
+
+```mermaid
+sequenceDiagram
+    participant 用户
+    participant BiliGPTHelper监听器
+    participant BiliGPTHelper处理链
+    participant BiliGPTHelper发送链（包含at链和私信链）
+    participant 大语言模型
+    participant Whisper
+    用户 ->> BiliGPTHelper监听器: 发送私信或at消息消息
+    alt 消息触发关键词
+        BiliGPTHelper监听器 ->> BiliGPTHelper处理链: 触发关键词，开始处理
+    else 消息不触发关键词
+        BiliGPTHelper监听器 ->> 用户: 不触发关键词，不处理
+    end
+    BiliGPTHelper处理链 ->> BiliGPTHelper处理链: 检查是否有缓存
+    alt 有缓存
+        BiliGPTHelper处理链 ->> BiliGPTHelper发送链: 有缓存，直接发送
+    end
+    BiliGPTHelper处理链 ->> BiliGPTHelper处理链: 检查是否有字幕
+    alt 有字幕
+        BiliGPTHelper处理链 ->> 大语言模型: 构建prompt并生成摘要
+    else 没有字幕
+        BiliGPTHelper处理链 ->> Whisper: 转译视频
+        Whisper ->> BiliGPTHelper处理链: 转译完成
+        BiliGPTHelper处理链 ->> 大语言模型: 构建prompt并生成摘要
+    end
+    大语言模型 ->> BiliGPTHelper处理链: 摘要内容
+    BiliGPTHelper处理链 ->> BiliGPTHelper处理链: 解析摘要是否符合要求
+    alt 摘要符合要求
+        BiliGPTHelper处理链 ->> BiliGPTHelper发送链: 发送摘要
+        BiliGPTHelper发送链 ->> 用户: 发送成功
+    else 摘要不符合要求
+        BiliGPTHelper处理链 ->> BiliGPTHelper处理链: 使用指定prompt修复摘要
+        BiliGPTHelper处理链 ->> BiliGPTHelper发送链: 发送摘要
+        BiliGPTHelper发送链 ->> 用户: 发送成功
+    end
+```

@@ -239,16 +239,6 @@ class SummarizeChain:
             text += f"{subtitle['content']}\n"
         return text
 
-    async def async_ffmpeg(self, temp_dir, video_info):
-        loop = asyncio.get_event_loop()
-
-        def run_ffmpeg():
-            (
-                ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
-            )
-
-        await loop.run_in_executor(None, run_ffmpeg)
-
     async def _get_subtitle_by_whisper(
             self,
             video_info,
@@ -285,12 +275,11 @@ class SummarizeChain:
                     f.write(resp.content)
             _LOGGER.debug(f"视频中的音频流下载成功，正在转换音频格式")
             # 转换音频格式
-            # (
-            #     ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
-            #     .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
-            #     .run(overwrite_output=True)
-            # )
-            await self.async_ffmpeg(temp_dir, video_info)
+            (
+                ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
+                .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
+                .run(overwrite_output=True)
+            )
             _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
             # 使用whisper转写音频
             audio_path = f"{temp_dir}/{video_info['aid']} temp.mp3"
@@ -545,11 +534,11 @@ class SummarizeChain:
                                 await BiliSession.quick_send(
                                     self.credential,
                                     at_items,
-                                    f"AI觉得你的视频不需要处理，下面是AI返回的原内容：",
+                                    f"AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
                                 )
-                                await BiliSession.quick_send(
-                                    self.credential, at_items, answer
-                                )
+                                # await BiliSession.quick_send(
+                                #     self.credential, at_items, answer
+                                # )
                                 self.task_status_recorder.update_record(
                                     _item_uuid,
                                     stage=TaskProcessStage.END,
@@ -647,9 +636,9 @@ class SummarizeChain:
                 if resp["noneed"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                     await BiliSession.quick_send(
-                        self.credential, at_item, f"AI觉得你的视频不需要处理，下面是AI返回的原内容："
+                        self.credential, at_item, f"AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！"
                     )
-                    await BiliSession.quick_send(self.credential, at_item, answer)
+                    # await BiliSession.quick_send(self.credential, at_item, answer)
                     return None
                 else:
                     _LOGGER.info(
