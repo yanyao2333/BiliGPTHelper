@@ -307,7 +307,7 @@ class SummarizeChain:
         _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
         reply_data = copy.deepcopy(at_items)
         reply_data["item"]["ai_response"] = resp
-        self.reply_queue.put(reply_data)
+        await self.reply_queue.put(reply_data)
         _LOGGER.debug(f"结果加入发送队列成功")
         self.task_status_recorder.update_record(
             _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
