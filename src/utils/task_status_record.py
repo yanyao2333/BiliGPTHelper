@@ -36,7 +36,7 @@ class TaskStatusRecorder:
                 self.video_status = {}
                 self.save()
         except Exception as e:
-            _LOGGER(f"读取视频状态记录文件失败，错误信息为{e}，恢复为初始文件")
+            _LOGGER.error(f"读取视频状态记录文件失败，错误信息为{e}，恢复为初始文件")
             self.video_status = {}
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self.video_status, f, ensure_ascii=False, indent=4)
@@ -47,9 +47,9 @@ class TaskStatusRecorder:
             json.dump(self.video_status, f, ensure_ascii=False, indent=4)
 
     def get_record_by_stage(
-            self,
-            stage: TaskProcessStage,
-            event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
+        self,
+        stage: TaskProcessStage,
+        event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
     ):
         """根据stage获取记录"""
         records = []
@@ -59,11 +59,11 @@ class TaskStatusRecorder:
         return records
 
     def create_record(
-            self,
-            data: AtItems,
-            stage: TaskProcessStage,
-            event: TaskProcessEvent,
-            gmt_create: int,
+        self,
+        data: AtItems,
+        stage: TaskProcessStage,
+        event: TaskProcessEvent,
+        gmt_create: int,
     ):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
         _uuid = str(uuid.uuid4())
@@ -98,7 +98,7 @@ class TaskStatusRecorder:
         return True
 
     def save_queue(
-            self, queue: asyncio.Queue, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
+        self, queue: asyncio.Queue, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
     ):
         """保存队列"""
         queue_list = []
@@ -107,10 +107,10 @@ class TaskStatusRecorder:
             item["item"]["stage"] = TaskProcessStage.IN_QUEUE.value
             item["item"]["event"] = event.value
             if isinstance(
-                    item["item"]
-                            .get("private_msg_event", {"content": None})
-                            .get("content", None),
-                    Video,
+                item["item"]
+                .get("private_msg_event", {"content": None})
+                .get("content", None),
+                Video,
             ):
                 item["item"]["private_msg_event"]["content"] = item["item"][
                     "private_msg_event"
@@ -128,9 +128,9 @@ class TaskStatusRecorder:
 
     def get_uuid_by_data(self, data: AtItems):
         """根据data获取uuid"""
-        for uuid, record in self.tasks.items():
+        for _uuid, record in self.tasks.items():
             if record["data"] == data:
-                return uuid
+                return _uuid
         return None
 
     def delete_queue(self):

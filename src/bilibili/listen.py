@@ -36,7 +36,7 @@ class Listen:
         self.user_sessions = {}  # 存储用户状态和视频信息
 
     async def listen_at(self):
-        global run_time
+        # global run_time
         data: AtAPIResponse = await session.get_at(self.credential)
         _LOGGER.debug(f"获取at消息成功，内容为：{data}")
 
@@ -103,18 +103,6 @@ class Listen:
         )
         # self.sched.start()
         _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
-
-    @staticmethod
-    def build_credential(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value):
-        """构建credential（并没有什么卵用）
-        :param sessdata: sessdata
-        :param bili_jct: bili_jct
-        :param buvid3: buvid3
-        :param dedeuserid: dedeuserid
-        :param ac_time_value: ac_time_value（刷新cookie用，反正获取又不难，配置完省心）
-        :return: credential
-        """
-        return Credential(sessdata, bili_jct, buvid3, dedeuserid, ac_time_value)
 
     def build_private_msg_to_at_items(self, msg: PrivateMsg) -> AtItems:
         event = deepcopy(msg)

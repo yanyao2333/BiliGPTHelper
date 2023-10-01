@@ -9,3 +9,5 @@ tenacity
 PyYAML
 ffmpeg-python
 matplotlib
+injector
+pydantic

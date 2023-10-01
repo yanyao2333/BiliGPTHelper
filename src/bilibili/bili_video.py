@@ -1,3 +1,5 @@
+from typing import Optional
+
 from bilibili_api import video, parse_link, ResourceType
 from injector import inject
 
@@ -24,7 +26,7 @@ class BiliVideo:
         self.bvid = bvid
         self.aid = aid
         self.url = url
-        self.video_obj: video.Video = None
+        self.video_obj: Optional[video.Video] = None
 
     async def get_video_obj(self):
         _type = ResourceType.VIDEO

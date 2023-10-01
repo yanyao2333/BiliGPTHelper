@@ -517,7 +517,7 @@ class SummarizeChain:
                     begin_time = time.perf_counter()
                     answer = at_items["item"]["ai_response"]
                     video = BiliVideo(self.credential, url=at_items["item"]["uri"])
-                    obj, _type = await video.get_video_obj()
+                    # obj, _type = await video.get_video_obj()
                     # 处理结果
                     if answer:
                         try:

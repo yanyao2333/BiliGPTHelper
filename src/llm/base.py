@@ -24,7 +24,7 @@ class LLMBase:
 
     @staticmethod
     def use_template(
-            template_user_name: Templates, template_system_name: Templates = None, **kwargs
+        template_user_name: Templates, template_system_name: Templates = None, **kwargs
     ) -> list | None:
         """使用模板生成最终prompt（最终格式可能需要根据llm所需格式不同修改，默认为openai的system、user格式）
         :param template_user_name: 用户模板名称

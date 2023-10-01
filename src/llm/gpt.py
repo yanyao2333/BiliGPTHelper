@@ -53,7 +53,7 @@ class OpenAIGPTClient(LLMBase):
             return None
 
     async def completion(
-            self, prompt, model="gpt-3.5-turbo", **kwargs
+        self, prompt, model="gpt-3.5-turbo", **kwargs
     ) -> Tuple[str, int] | None:
         """调用openai的Completion API
         :param model: 模型名称

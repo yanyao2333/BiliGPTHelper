@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 
 def run_statistic(output_dir, data):
     if os.getenv("RUNNING_IN_DOCKER") == "yes":
-        matplotlib.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei']
-        matplotlib.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+        matplotlib.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
+        matplotlib.rcParams["axes.unicode_minus"] = False  # 用来正常显示负号
     else:
         matplotlib.rcParams["font.sans-serif"] = ["SimHei"]
         matplotlib.rcParams["axes.unicode_minus"] = False

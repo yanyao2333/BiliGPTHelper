@@ -2,6 +2,7 @@ import asyncio
 import random
 import traceback
 from asyncio import Queue
+from typing import Optional
 
 import tenacity
 from bilibili_api import comment, ResourceType, video
@@ -140,7 +141,7 @@ class BiliComment:
                     if data is not None:
                         _LOGGER.debug(f"继续处理上一次失败的评论任务")
                     if data is None:
-                        data: AtItems = await self.comment_queue.get()
+                        data: Optional[AtItems] = await self.comment_queue.get()
                         _LOGGER.debug(f"获取到新的评论任务，开始处理")
                     video_obj, _type = await BiliVideo(
                         credential=self.credential, url=data["item"]["uri"]
