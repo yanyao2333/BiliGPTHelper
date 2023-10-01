@@ -20,3 +20,10 @@ class GlobalVariablesManager:
         for key, value in data.items():
             self.set_variable(key, value)
         return self
+
+    def get_dict(self):
+        return self._variables
+
+    @property
+    def variables(self):
+        return self._variables

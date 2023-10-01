@@ -8,109 +8,21 @@ import traceback
 import ffmpeg
 import httpx
 import tenacity
-from bilibili_api import HEADERS, ResourceType
-from injector import inject
+from bilibili_api import HEADERS
 
-from src.asr.local_whisper import Whisper
-from src.bilibili.bili_comment import BiliComment
-from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
 from src.bilibili.bili_video import BiliVideo
+from src.chain.base_chain import BaseChain
 from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
-from src.utils.cache import Cache
-from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
-from src.utils.queue_manager import QueueManager
-from src.utils.task_status_record import TaskStatusRecorder
 from src.utils.types import *
 
 _LOGGER = LOGGER.bind(name="summarize-chain")
 
 
-class SummarizeChain:
+class SummarizeChain(BaseChain):
     """摘要处理链"""
-
-    @inject
-    def __init__(
-        self,
-        queue_manager: QueueManager,
-        value_manager: GlobalVariablesManager,
-        credential: BiliCredential,
-        cache: Cache,
-        whisper_obj: Whisper,
-        task_status_recorder: TaskStatusRecorder,
-    ):
-        self.summarize_queue = queue_manager.get_queue("summarize")
-        self.reply_queue = queue_manager.get_queue("reply")
-        self.private_queue = queue_manager.get_queue("private")
-        self.value_manager = value_manager
-        self.api_key = self.value_manager.get_variable("api_key")
-        self.api_base = (
-            self.value_manager.get_variable("api_base")
-            if self.value_manager.get_variable("api_base")
-            else "https://api.openai.com/v1"
-        )
-        self.temp_dir = (
-            self.value_manager.get_variable("temp_dir")
-            if self.value_manager.get_variable("temp_dir")
-            else os.path.join(os.getcwd(), "temp")
-        )
-        self.queue_dir = (
-            self.value_manager.get_variable("queue_dir")
-            if self.value_manager.get_variable("queue_dir")
-            else os.path.join(os.getcwd(), "queue")
-        )
-        self.whisper_model = (
-            self.value_manager.get_variable("whisper_model_size")
-            if self.value_manager.get_variable("whisper_model_size")
-            else "medium"
-        )
-        self.model = (
-            self.value_manager.get_variable("model")
-            if self.value_manager.get_variable("model")
-            else "gpt-3.5-torbo"
-        )
-        self.whisper_device = (
-            self.value_manager.get_variable("whisper_device")
-            if self.value_manager.get_variable("whisper_device")
-            else "cpu"
-        )
-        self.credential = credential
-        self.whisper_after_process = (
-            self.value_manager.get_variable("whisper_after_process")
-            if self.value_manager.get_variable("whisper_after_process")
-            else False
-        )
-        self.cache = cache
-        self.whisper_obj = whisper_obj
-        self.whisper_model_obj = self.whisper_obj.get_model() if whisper_obj else None
-        self.max_tokens = (
-            self.value_manager.get_variable("max_total_tokens")
-            if self.value_manager.get_variable("max_total_tokens")
-            else None
-        )
-        self.now_tokens = 0
-        self.task_status_recorder = task_status_recorder
-
-    # async def start(self):
-    #     while True:
-    #         try:
-    #             _LOGGER.info("正在启动摘要处理链")
-    #             await self._start_chain()
-    #         except asyncio.CancelledError:
-    #             _LOGGER.info("收到取消信号，摘要处理链关闭")
-    #             break
-    #         except Exception as e:
-    #             _LOGGER.trace(f"摘要处理链出现错误：{e}，正在重启并处理剩余任务")
-
-    @staticmethod
-    def chain_callback(retry_state):
-        exception = retry_state.outcome.exception()
-        _LOGGER.error(f"捕获到错误：{exception}")
-        traceback.print_tb(retry_state.outcome.exception().__traceback__)
-        _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
-        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
 
     async def _check_require(self, at_items: AtItems, _uuid: str) -> bool:
         """检查是否满足处理条件"""
@@ -125,122 +37,13 @@ class SummarizeChain:
             at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1
         ):
             _LOGGER.warning(f"该消息目前并不支持，跳过处理")
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.ERROR,
-                gmt_end=int(time.time()),
-                error_msg="该消息目前并不支持，跳过处理",
-            )
+            self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
             return False
         if at_items["item"]["root_id"] != 0 or at_items["item"]["target_id"] != 0:
             _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.ERROR,
-                gmt_end=int(time.time()),
-                error_msg="该消息是楼中楼消息，暂时不受支持，跳过处理",
-            )
+            self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
             return False
         return True
-
-    async def _process_video_info(self, at_items: AtItems, _uuid: str) -> bool | tuple:
-        """处理视频信息"""
-        _LOGGER.info(f"开始处理该视频音频流和字幕")
-        video = BiliVideo(self.credential, url=at_items["item"]["uri"])
-        _, _type = await video.get_video_obj()
-        # _LOGGER.debug(_type)
-        if _type != ResourceType.VIDEO:
-            _LOGGER.warning(f"视频{at_items['item']['uri']}不是视频或不存在，跳过")
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.ERROR,
-                gmt_end=int(time.time()),
-                error_msg="视频不是视频或不存在，跳过",
-            )
-            return False
-        _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
-        video_info = await video.get_video_info()
-        if self.cache.get_cache(key=video_info["bvid"]):
-            _LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-            if (
-                at_items["item"]["type"] == "private_msg"
-                and at_items["item"]["business_id"] == 114
-            ):
-                cache = self.cache.get_cache(key=video_info["bvid"])
-                at_items["item"]["ai_response"] = cache
-                await self.private_queue.put(at_items)
-            else:
-                cache = self.cache.get_cache(key=video_info["bvid"])
-                at_items["item"]["ai_response"] = cache
-                await self.reply_queue.put(at_items)
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.NORMAL,
-                gmt_end=int(time.time()),
-            )
-            return True
-        _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
-        format_video_name = f"『{video_info['title']}』"
-        # video_pages = await video.get_video_pages() # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
-        if len(video_info["pages"]) > 1:
-            _LOGGER.info(f"视频{format_video_name}分P，跳过处理")
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.ERROR,
-                gmt_end=int(time.time()),
-                error_msg="视频分P，跳过处理",
-            )
-            return False
-        # 获取视频标签
-        video_tags = (
-            await video.get_video_tags()
-        )  # 增加tag有概率导致输出内容变差，后期通过prompt engineering解决
-        video_tags_string = ""
-        for tag in video_tags:
-            video_tags_string += f"#{tag['tag_name']} "
-        _LOGGER.debug(f"视频标签获取成功，开始获取视频评论")
-        # 获取视频评论
-        video_comments = await BiliComment.get_random_comment(
-            video_info["aid"], self.credential
-        )
-        return video, video_info, format_video_name, video_tags_string, video_comments
-
-    async def _get_subtitle_from_bilibili(
-        self, video: BiliVideo, _uuid: str, format_video_name: str
-    ) -> bool | str:
-        subtitle_url = await video.get_video_subtitle(page_index=0)
-        if subtitle_url is None:
-            _LOGGER.warning(f"视频{format_video_name}因未知原因无法获取字幕，跳过处理")
-            self.task_status_recorder.update_record(
-                _uuid,
-                stage=TaskProcessStage.END,
-                end_reason=TaskProcessEndReason.ERROR,
-                gmt_end=int(time.time()),
-                error_msg="视频因未知原因无法获取字幕，跳过处理",
-            )
-            return False
-        _LOGGER.debug(f"视频字幕获取成功，正在读取字幕")
-        # 下载字幕
-        async with httpx.AsyncClient() as client:
-            resp = await client.get("https:" + subtitle_url, headers=HEADERS)
-        _LOGGER.debug(f"字幕获取成功，正在转换为纯字幕")
-        # 转换字幕格式
-        text = ""
-        for subtitle in resp.json()["body"]:
-            # from_time = int(subtitle["from"])
-            # f_min, f_sec = divmod(from_time, 60)
-            # f_format = f"{f_min}:{f_sec}"
-            # to_time = int(subtitle["to"])
-            # t_min, t_sec = divmod(to_time, 60)
-            # t_format = f"{t_min}:{t_sec}"
-            # text += f"{f_format} --> {t_format}  {subtitle['content']}\n"
-            text += f"{subtitle['content']}\n"
-        return text
 
     async def _get_subtitle_by_whisper(
         self,
@@ -316,7 +119,7 @@ class SummarizeChain:
             _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
         )
         self.cache.set_cache(
-            key=video_info["bvid"], value=self.cut_items_leaves(reply_data)
+            key=video_info["bvid"], value=BaseChain.cut_items_leaves(reply_data)
         )
         self.task_status_recorder.update_record(
             _uuid,
@@ -344,7 +147,7 @@ class SummarizeChain:
             _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
         )
         self.cache.set_cache(
-            key=video_info["bvid"], value=self.cut_items_leaves(reply_data)
+            key=video_info["bvid"], value=BaseChain.cut_items_leaves(reply_data)
         )
         self.task_status_recorder.update_record(
             _uuid,
@@ -379,6 +182,14 @@ class SummarizeChain:
         self.task_status_recorder.load_queue(self.summarize_queue)
         _LOGGER.info(f"正在将上次在队列中的视频加入队列")
         self.task_status_recorder.delete_queue()  # FIXME 这里有可能会导致队列丢失，但目前只有这一个队列，先不管
+
+    @staticmethod
+    def chain_callback(retry_state):
+        exception = retry_state.outcome.exception()
+        _LOGGER.error(f"捕获到错误：{exception}")
+        traceback.print_tb(retry_state.outcome.exception().__traceback__)
+        _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
+        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -435,7 +246,7 @@ class SummarizeChain:
                     or data["stage"] == TaskProcessStage.WAITING_LLM_RESPONSE.value
                 ):
                     begin_time = time.perf_counter()
-                    resp = await self._process_video_info(at_items, _item_uuid)
+                    resp = await self._get_video_info(at_items, _item_uuid)
                     if type(resp) is bool:
                         continue
                     (
@@ -606,10 +417,6 @@ class SummarizeChain:
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
-    def cut_items_leaves(self, items: AtItems):
-        """精简at items数据，只保存ai_response，准备存入cache"""
-        return items["item"]["ai_response"]
-
     async def retry_summarize(
         self, ai_answer, at_item, format_video_name, begin_time, video_info
     ):
@@ -661,7 +468,7 @@ class SummarizeChain:
                         # ]["private_msg_event"]["content"].get_bvid()
                         self.cache.set_cache(
                             key=video_info["bvid"],
-                            value=self.cut_items_leaves(reply_data),
+                            value=BaseChain.cut_items_leaves(reply_data),
                         )
                         _LOGGER.debug(f"设置缓存成功")
                         return True
@@ -673,7 +480,7 @@ class SummarizeChain:
                         _LOGGER.debug(f"结果加入发送队列成功")
                         self.cache.set_cache(
                             key=video_info["bvid"],
-                            value=self.cut_items_leaves(reply_data),
+                            value=BaseChain.cut_items_leaves(reply_data),
                         )
                         _LOGGER.debug(f"设置缓存成功")
                         return True
