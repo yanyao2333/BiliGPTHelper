@@ -33,6 +33,8 @@ def run_statistic(output_dir, data):
     request_types = []
 
     # Populate variables based on task statuses
+    if "tasks" not in data or not data["tasks"]:
+        return
     for task_id, task in data["tasks"].items():
         end_reason = task.get("end_reason", "normal")
         end_reasons.append(end_reason_map.get(end_reason, "Unknown"))
@@ -125,12 +127,12 @@ def run_statistic(output_dir, data):
     plt.savefig(f"{output_folder}/请求类型占比饼形图.png")
 
     def get_pingyu(total_requests):
-        if total_requests < 10:
-            return "似乎没什么人来找你总结呢，杂鱼❤"
+        if total_requests < 50:
+            return "似乎没什么人来找你玩呢，杂鱼❤"
         elif total_requests < 100:
-            return "你的总结功能已经被人发现了，但还没被大规模使用，加油！但是...咱才不会鼓励你呢！"
+            return "还没被大规模使用，加油！但是...咱才不会鼓励你呢！"
         elif total_requests < 1000:
-            return "挖槽，大佬，你的总结功能已经被大规模使用了，你的粉丝们都在等你总结呢！"
+            return "挖槽，大佬，已经总结这么多次了吗？？？这破程序没出什么bug吧"
 
     # Markdown Summary
     total_requests = len(data["tasks"])

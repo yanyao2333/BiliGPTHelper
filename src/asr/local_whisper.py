@@ -33,7 +33,7 @@ class Whisper:
         return self.model
 
     def _run_whisper_audio(
-            self, model, audio_path, after_process, prompt, openai_api_key, openai_endpoint
+        self, model, audio_path, after_process, prompt, openai_api_key, openai_endpoint
     ):
         begin_time = time.perf_counter()
         _LOGGER.info(f"开始转写 {audio_path}")
@@ -61,14 +61,14 @@ class Whisper:
         return text
 
     async def whisper_audio(
-            self,  # 添加self参数以访问线程池
-            model,
-            audio_path,
-            after_process=False,
-            prompt=None,
-            openai_api_key=None,
-            openai_endpoint=None,
-    ) -> str:
+        self,  # 添加self参数以访问线程池
+        model,
+        audio_path,
+        after_process=False,
+        prompt=None,
+        openai_api_key=None,
+        openai_endpoint=None,
+    ) -> dict:
         loop = asyncio.get_event_loop()
 
         result = await loop.run_in_executor(

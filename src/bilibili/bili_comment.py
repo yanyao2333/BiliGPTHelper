@@ -5,7 +5,9 @@ from asyncio import Queue
 
 import tenacity
 from bilibili_api import comment, ResourceType, video
+from injector import inject
 
+from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
 from src.utils.logging import LOGGER
 from src.utils.types import AtItems, AiResponse
@@ -19,17 +21,18 @@ class RiskControlFindError(Exception):
 
 
 class BiliComment:
-    def __init__(self, comment_queue: Queue, credential):
+    @inject
+    def __init__(self, comment_queue: Queue, credential: BiliCredential):
         self.comment_queue = comment_queue
         self.credential = credential
 
     @staticmethod
     async def get_random_comment(
-            aid,
-            credential,
-            type_=comment.CommentResourceType.VIDEO,
-            page_index=1,
-            order=comment.OrderType.LIKE,
+        aid,
+        credential,
+        type_=comment.CommentResourceType.VIDEO,
+        page_index=1,
+        order=comment.OrderType.LIKE,
     ) -> str | None:
         """
         随机获取几条热评，直接生成评论prompt string

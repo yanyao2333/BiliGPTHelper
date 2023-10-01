@@ -2,6 +2,7 @@ from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from bilibili_api import Credential
+from injector import inject
 
 from src.utils.logging import LOGGER
 
@@ -11,6 +12,7 @@ _LOGGER = LOGGER.bind(name="bilibili-credential")
 class BiliCredential(Credential):
     """B站凭证类，主要增加定时检查cookie是否过期"""
 
+    @inject
     def __init__(
         self,
         SESSDATA: str,
@@ -18,7 +20,7 @@ class BiliCredential(Credential):
         buvid3: str,
         dedeuserid: str,
         ac_time_value: str,
-            sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
+        sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
     ):
         """
         全部强制要求传入，以便于cookie刷新。

@@ -2,8 +2,10 @@ import asyncio
 import traceback
 
 import tenacity
-from bilibili_api import Credential, session, ResourceType, video
+from bilibili_api import session, ResourceType, video
+from injector import inject
 
+from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
 from src.utils.logging import LOGGER
 from src.utils.types import AtItems, AiResponse
@@ -12,7 +14,8 @@ _LOGGER = LOGGER.bind(name="bilibili-session")
 
 
 class BiliSession:
-    def __init__(self, credential: Credential, private_queue: asyncio.Queue):
+    @inject
+    def __init__(self, credential: BiliCredential, private_queue: asyncio.Queue):
         """
         初始化BiliSession类
 
@@ -39,7 +42,7 @@ class BiliSession:
         msg_list = [
             f"【视频摘要】{response['summary']}",
             f"【咱对本次生成内容的自我评分】{response['score']}分\n\n【咱的思考】{response['thinking']}\n\n另外欢迎在github上给本项目点个star！",
-            "https://github.com/yanyao2333/BiliGPTHelper",
+            # "https://github.com/yanyao2333/BiliGPTHelper",
         ]
         return msg_list
 

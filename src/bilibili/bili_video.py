@@ -1,9 +1,17 @@
-from bilibili_api import video, Credential, parse_link, ResourceType
+from bilibili_api import video, parse_link, ResourceType
+from injector import inject
+
+from src.bilibili.bili_credential import BiliCredential
 
 
 class BiliVideo:
+    @inject
     def __init__(
-            self, credential: Credential, bvid: str = None, aid: int = None, url: str = None
+        self,
+        credential: BiliCredential,
+        bvid: str = None,
+        aid: int = None,
+        url: str = None,
     ):
         """
         三选一，优先级为url > aid > bvid

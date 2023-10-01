@@ -19,14 +19,15 @@ keywords:
     - "锐评一下吧！"
 
 
-openai:
-  api-key: "" # 你的openai api key
-  api-base: "" # 你的openai api base url（多数在使用第三方api供应商时会有，记得url尾缀有/v1）
-  model: "gpt-3.5-turbo-16k" # 选择模型，我现在只推荐使用gpt-3.5-turbo-16k，其他模型容纳不了这么大的token，如果你有gpt-4-16k权限，还钱多，请自便
-  max-total-tokens: null # 一次运行最多使用的token，耗尽后程序停止（只会计算生成摘要和重试的token，whisper后处理的token不会被计算）
+llm:
+  openai:
+    api-key: "" # 你的openai api key
+    api-base: "" # 你的openai api base url（多数在使用第三方api供应商时会有，记得url尾缀有/v1）
+    model: "gpt-3.5-turbo-16k" # 选择模型，我现在只推荐使用gpt-3.5-turbo-16k，其他模型容纳不了这么大的token，如果你有gpt-4-16k权限，还钱多，请自便
+    max-total-tokens: null # 一次运行最多使用的token，耗尽后程序停止（只会计算生成摘要和重试的token，whisper后处理的token不会被计算）
 
 whisper:
-  whisper-enable: true # 是否启用whisper，在视频无字幕时生成字幕，否则该视频将自动跳过
+  whisper-enable: false # 是否启用whisper，在视频无字幕时生成字幕，否则该视频将自动跳过
   whisper-model-size: "tiny" # tiny, base, small, medium, large 详细选择请去：https://github.com/openai/whisper
   whisper-device: "cpu" # cpu or cuda（仅在运行源代码时可用，docker运行只能选择cpu）
   whisper-after-process: false # 是否在使用whisper转义后再使用llm优化生成结果，最终字幕效果会大幅提升

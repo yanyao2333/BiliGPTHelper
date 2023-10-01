@@ -19,3 +19,4 @@ class GlobalVariablesManager:
     def set_from_dict(self, data: dict):
         for key, value in data.items():
             self.set_variable(key, value)
+        return self

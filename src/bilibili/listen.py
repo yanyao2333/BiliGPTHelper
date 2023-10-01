@@ -5,8 +5,10 @@ from copy import deepcopy
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from bilibili_api import session, Credential
+from bilibili_api import session
+from injector import inject
 
+from src.bilibili.bili_credential import BiliCredential
 from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
@@ -16,12 +18,13 @@ _LOGGER = LOGGER.bind(name="bilibili-listener")
 
 
 class Listen:
+    @inject
     def __init__(
-            self,
-            credential,
-            queue_manager: QueueManager,
-            value_manager: GlobalVariablesManager,
-            sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
+        self,
+        credential: BiliCredential,
+        queue_manager: QueueManager,
+        value_manager: GlobalVariablesManager,
+        sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
     ):
         self.sess = None
         self.credential = credential

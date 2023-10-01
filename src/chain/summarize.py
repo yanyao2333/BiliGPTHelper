@@ -8,9 +8,12 @@ import traceback
 import ffmpeg
 import httpx
 import tenacity
-from bilibili_api import Credential, HEADERS, ResourceType
+from bilibili_api import HEADERS, ResourceType
+from injector import inject
 
+from src.asr.local_whisper import Whisper
 from src.bilibili.bili_comment import BiliComment
+from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
 from src.bilibili.bili_video import BiliVideo
 from src.llm.gpt import OpenAIGPTClient
@@ -28,39 +31,39 @@ _LOGGER = LOGGER.bind(name="summarize-chain")
 class SummarizeChain:
     """摘要处理链"""
 
+    @inject
     def __init__(
-            self,
-            queue_manager: QueueManager,
-            value_manager: GlobalVariablesManager,
-            credential: Credential,
-            cache: Cache,
-            whisper_model_obj,
-            whisper_obj,
-            task_status_recorder: TaskStatusRecorder,
+        self,
+        queue_manager: QueueManager,
+        value_manager: GlobalVariablesManager,
+        credential: BiliCredential,
+        cache: Cache,
+        whisper_obj: Whisper,
+        task_status_recorder: TaskStatusRecorder,
     ):
         self.summarize_queue = queue_manager.get_queue("summarize")
         self.reply_queue = queue_manager.get_queue("reply")
         self.private_queue = queue_manager.get_queue("private")
         self.value_manager = value_manager
-        self.api_key = self.value_manager.get_variable("api-key")
+        self.api_key = self.value_manager.get_variable("api_key")
         self.api_base = (
-            self.value_manager.get_variable("api-base")
-            if self.value_manager.get_variable("api-base")
+            self.value_manager.get_variable("api_base")
+            if self.value_manager.get_variable("api_base")
             else "https://api.openai.com/v1"
         )
         self.temp_dir = (
-            self.value_manager.get_variable("temp-dir")
-            if self.value_manager.get_variable("temp-dir")
+            self.value_manager.get_variable("temp_dir")
+            if self.value_manager.get_variable("temp_dir")
             else os.path.join(os.getcwd(), "temp")
         )
         self.queue_dir = (
-            self.value_manager.get_variable("queue-dir")
-            if self.value_manager.get_variable("queue-dir")
+            self.value_manager.get_variable("queue_dir")
+            if self.value_manager.get_variable("queue_dir")
             else os.path.join(os.getcwd(), "queue")
         )
         self.whisper_model = (
-            self.value_manager.get_variable("whisper-model-size")
-            if self.value_manager.get_variable("whisper-model-size")
+            self.value_manager.get_variable("whisper_model_size")
+            if self.value_manager.get_variable("whisper_model_size")
             else "medium"
         )
         self.model = (
@@ -69,25 +72,25 @@ class SummarizeChain:
             else "gpt-3.5-torbo"
         )
         self.whisper_device = (
-            self.value_manager.get_variable("whisper-device")
-            if self.value_manager.get_variable("whisper-device")
+            self.value_manager.get_variable("whisper_device")
+            if self.value_manager.get_variable("whisper_device")
             else "cpu"
         )
         self.credential = credential
         self.whisper_after_process = (
-            self.value_manager.get_variable("whisper-after-process")
-            if self.value_manager.get_variable("whisper-after-process")
+            self.value_manager.get_variable("whisper_after_process")
+            if self.value_manager.get_variable("whisper_after_process")
             else False
         )
         self.cache = cache
-        self.whisper_model_obj = whisper_model_obj
+        self.whisper_obj = whisper_obj
+        self.whisper_model_obj = self.whisper_obj.get_model() if whisper_obj else None
         self.max_tokens = (
-            self.value_manager.get_variable("max-total-tokens")
-            if self.value_manager.get_variable("max-total-tokens")
+            self.value_manager.get_variable("max_total_tokens")
+            if self.value_manager.get_variable("max_total_tokens")
             else None
         )
         self.now_tokens = 0
-        self.whisper_obj = whisper_obj
         self.task_status_recorder = task_status_recorder
 
     # async def start(self):
@@ -112,14 +115,14 @@ class SummarizeChain:
     async def _check_require(self, at_items: AtItems, _uuid: str) -> bool:
         """检查是否满足处理条件"""
         if (
-                at_items["item"]["type"] == "private_msg"
-                and at_items["item"]["business_id"] == 114
+            at_items["item"]["type"] == "private_msg"
+            and at_items["item"]["business_id"] == 114
         ):
             _LOGGER.debug(f"该消息是私信消息，继续处理")
             await BiliSession.quick_send(self.credential, at_items, "视频已开始处理，你先别急")
             return True
         elif (
-                at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1
+            at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1
         ):
             _LOGGER.warning(f"该消息目前并不支持，跳过处理")
             self.task_status_recorder.update_record(
@@ -163,8 +166,8 @@ class SummarizeChain:
         if self.cache.get_cache(key=video_info["bvid"]):
             _LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
             if (
-                    at_items["item"]["type"] == "private_msg"
-                    and at_items["item"]["business_id"] == 114
+                at_items["item"]["type"] == "private_msg"
+                and at_items["item"]["business_id"] == 114
             ):
                 cache = self.cache.get_cache(key=video_info["bvid"])
                 at_items["item"]["ai_response"] = cache
@@ -208,7 +211,7 @@ class SummarizeChain:
         return video, video_info, format_video_name, video_tags_string, video_comments
 
     async def _get_subtitle_from_bilibili(
-            self, video: BiliVideo, _uuid: str, format_video_name: str
+        self, video: BiliVideo, _uuid: str, format_video_name: str
     ) -> bool | str:
         subtitle_url = await video.get_video_subtitle(page_index=0)
         if subtitle_url is None:
@@ -240,12 +243,12 @@ class SummarizeChain:
         return text
 
     async def _get_subtitle_by_whisper(
-            self,
-            video_info,
-            video: BiliVideo,
-            _uuid: str,
-            format_video_name,
-            at_items: AtItems,
+        self,
+        video_info,
+        video: BiliVideo,
+        _uuid: str,
+        format_video_name,
+        at_items: AtItems,
     ) -> bool | str:
         _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
         if len(video_info["subtitle"]["list"]) == 0:
@@ -302,7 +305,7 @@ class SummarizeChain:
             return text
 
     async def _send_reply(
-            self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
+        self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
     ):
         _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
         reply_data = copy.deepcopy(at_items)
@@ -325,7 +328,7 @@ class SummarizeChain:
         return True
 
     async def _send_private(
-            self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
+        self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
     ):
         _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
         reply_data = copy.deepcopy(at_items)
@@ -401,10 +404,10 @@ class SummarizeChain:
                     ]  # TODO 有uuid就一定有视频记录，但如果是继续处理的话，gmt_create时间就会不准确，要不要在读取时再修改一次？
                 else:
                     if isinstance(
-                            at_items.get("item")
-                                    .get("private_msg_event", {"content": None})
-                                    .get("content", None),
-                            Video,
+                        at_items.get("item")
+                        .get("private_msg_event", {"content": None})
+                        .get("content", None),
+                        Video,
                     ):
                         temp = at_items
                         temp["item"]["private_msg_event"]["content"] = temp["item"][
@@ -428,8 +431,8 @@ class SummarizeChain:
                 video_info = await video.get_video_info()
                 format_video_name = f"『{video_info['title']}』"
                 if (
-                        data["stage"] == TaskProcessStage.PREPROCESS.value
-                        or data["stage"] == TaskProcessStage.WAITING_LLM_RESPONSE.value
+                    data["stage"] == TaskProcessStage.PREPROCESS.value
+                    or data["stage"] == TaskProcessStage.WAITING_LLM_RESPONSE.value
                 ):
                     begin_time = time.perf_counter()
                     resp = await self._process_video_info(at_items, _item_uuid)
@@ -508,8 +511,8 @@ class SummarizeChain:
 
                 data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
                 if (
-                        data["stage"] == TaskProcessStage.WAITING_SEND.value
-                        or data["stage"] == TaskProcessStage.WAITING_RETRY.value
+                    data["stage"] == TaskProcessStage.WAITING_SEND.value
+                    or data["stage"] == TaskProcessStage.WAITING_RETRY.value
                 ):
                     begin_time = time.perf_counter()
                     answer = at_items["item"]["ai_response"]
@@ -551,8 +554,8 @@ class SummarizeChain:
                                     f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                                 )
                                 if (
-                                        at_items["item"]["type"] == "private_msg"
-                                        and at_items["item"]["business_id"] == 114
+                                    at_items["item"]["type"] == "private_msg"
+                                    and at_items["item"]["business_id"] == 114
                                 ):
                                     _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
                                     await self._send_private(
@@ -608,7 +611,7 @@ class SummarizeChain:
         return items["item"]["ai_response"]
 
     async def retry_summarize(
-            self, ai_answer, at_item, format_video_name, begin_time, video_info
+        self, ai_answer, at_item, format_video_name, begin_time, video_info
     ):
         """通过重试prompt让chatgpt重新构建json
 
@@ -645,8 +648,8 @@ class SummarizeChain:
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
                     if (
-                            at_item["item"]["type"] == "private_msg"
-                            and at_item["item"]["business_id"] == 114
+                        at_item["item"]["type"] == "private_msg"
+                        and at_item["item"]["business_id"] == 114
                     ):
                         _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
                         reply_data = copy.deepcopy(at_item)
