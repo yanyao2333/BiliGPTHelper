@@ -111,7 +111,7 @@ class BiliComment:
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        return f"【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}\n\n欢迎在github上给本项目点个star！ https://github.com/yanyao2333/BiliGPTHelper"
+        return f"【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}"
 
     @staticmethod
     def chain_callback(retry_state):
