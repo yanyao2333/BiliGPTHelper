@@ -1,3 +1,4 @@
+# pylint: skip-file
 from enum import Enum
 
 SUMMARIZE_JSON_RESPONSE = '{summary: "替换为你的总结内容", score: "替换为你为自己打的分数", thinking: "替换为你的思考内容", noneed: "是否需要总结？填布尔值"}'

@@ -13,7 +13,7 @@ RUN apt-get update \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY . ./
-COPY config.yml /clone-data/config.yml
+COPY ./config/docker_config.yml /clone-data/config.yml
 
 ENV CONFIG_FILE=/data/config.yml
 ENV CACHE_FILE=/data/cache.json
