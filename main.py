@@ -62,7 +62,7 @@ async def start_pipeline():
 
     # 启动摘要处理链
     _LOGGER.info("正在启动摘要处理链")
-    summarize_task = asyncio.create_task(summarize_chain.start_chain())
+    summarize_task = asyncio.create_task(summarize_chain.main())
 
     # 启动评论
     _LOGGER.info("正在启动评论处理链")
@@ -92,9 +92,11 @@ async def start_pipeline():
             sched.shutdown()
             listen.close_private_listen()
             _LOGGER.info("正在保存队列任务信息")
+            # NOTICE: 需要保存其他queue时，需要在这里添加
             injector.get(TaskStatusRecorder).save_queue(
                 injector.get(QueueManager).get_queue("summarize"),
                 event=TaskProcessEvent.SUMMARIZE,
+                queue_name="summarize",
             )
             _LOGGER.info("正在关闭所有的处理链")
             summarize_task.cancel()

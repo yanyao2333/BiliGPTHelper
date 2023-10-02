@@ -1,8 +1,13 @@
 import abc
+import copy
+import os
 import time
+from typing import Optional
 
+import ffmpeg
 import httpx
 from bilibili_api import HEADERS
+from bilibili_api.video import Video
 from injector import inject
 
 from src.asr.local_whisper import Whisper
@@ -14,7 +19,12 @@ from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
 from src.utils.task_status_record import TaskStatusRecorder
-from src.utils.types import TaskProcessStage, TaskProcessEndReason, AtItems
+from src.utils.types import (
+    TaskProcessStage,
+    TaskProcessEndReason,
+    AtItems,
+    TaskProcessEvent,
+)
 
 
 class BaseChain:
@@ -73,7 +83,7 @@ class BaseChain:
             error_msg=msg,
         )
 
-    def _set_normal_end(self, _uuid: str):
+    def _set_normal_end(self, _uuid: str, if_retry: bool = False):
         """当一个视频正常结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
@@ -82,8 +92,17 @@ class BaseChain:
             gmt_end=int(time.time()),
         )
 
+    def _set_noneed_end(self, _uuid: str):
+        """当一个视频不需要处理时，调用此方法"""
+        self.task_status_recorder.update_record(
+            _uuid,
+            stage=TaskProcessStage.END,
+            end_reason=TaskProcessEndReason.NONEED,
+            gmt_end=int(time.time()),
+        )
+
     @abc.abstractmethod
-    def _check_require(self, at_item: AtItems, _uuid: str) -> bool:
+    def _precheck(self, at_item: AtItems, _uuid: str) -> bool:
         """检查是否符合调用条件
         :param at_item: AtItem
         :param _uuid: 这项任务的uuid
@@ -97,21 +116,36 @@ class BaseChain:
         """精简at items数据，只保存ai_response，准备存入cache"""
         return items["item"]["ai_response"]
 
-    async def _finish(self, at_items: AtItems, mode: str, _uuid: str, bvid: str):
+    async def finish(
+        self, at_items: AtItems, resp: dict, bvid: str, _uuid: str
+    ) -> bool:
         """
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
+        :param resp: ai的回复
         :param at_items:
-        :param mode: reply or private
         :param _uuid: 任务uuid
         :param bvid: 视频bvid
         :return:
         """
-        if mode == "reply":
-            await self.reply_queue.put(at_items)
-        elif mode == "private":
-            await self.private_queue.put(at_items)
+        _LOGGER = self._LOGGER
+        reply_data = copy.deepcopy(at_items)
+        reply_data["item"]["ai_response"] = resp
+        if (
+            at_items["item"]["type"] == "private_msg"
+            and at_items["item"]["business_id"] == 114
+        ):
+            _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
+            await self.private_queue.put(reply_data)
+        else:
+            _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
+            await self.reply_queue.put(reply_data)
+        _LOGGER.debug("开始后处理")
+        self.task_status_recorder.update_record(
+            _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
+        )
+        self.cache.set_cache(key=bvid, value=BaseChain.cut_items_leaves(reply_data))
         self._set_normal_end(_uuid)
-        self.cache.set_cache(bvid, BaseChain.cut_items_leaves(at_items))
+        return True
 
     async def _is_cached_video(
         self, at_items: AtItems, _uuid: str, video_info: dict
@@ -127,20 +161,19 @@ class BaseChain:
             ):
                 cache = self.cache.get_cache(key=video_info["bvid"])
                 at_items["item"]["ai_response"] = cache
-                await self._finish(at_items, "private", _uuid, video_info["bvid"])
+                await self.finish(at_items, cache, video_info["bvid"], _uuid)
             else:
                 cache = self.cache.get_cache(key=video_info["bvid"])
                 at_items["item"]["ai_response"] = cache
-                await self._finish(at_items, "reply", _uuid, video_info["bvid"])
+                await self.finish(at_items, cache, video_info["bvid"], _uuid)
             return True
         return False
 
     async def _get_video_info(
         self, at_items: AtItems, _uuid: str
-    ) -> bool | tuple[BiliVideo, dict, str, str, str]:
+    ) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
         """获取视频的一些信息
 
-        :return 视频出错就返回False，命中缓存返回True
         :return 视频正常返回元组(video, video_info, format_video_name, video_tags_string, video_comments)
 
         video: BiliVideo对象
@@ -153,16 +186,14 @@ class BaseChain:
         _LOGGER.info(f"开始处理该视频音频流和字幕")
         video = BiliVideo(self.credential, url=at_items["item"]["uri"])
         _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
-        video_info = await video.get_video_info()
-        if self._is_cached_video(at_items, _uuid, video_info):
-            return True
+        video_info = await video.get_video_info
         _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
         format_video_name = f"『{video_info['title']}』"
         # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
         if len(video_info["pages"]) > 1:
             _LOGGER.info(f"视频{format_video_name}分P，跳过处理")
             self._set_err_end(_uuid, "视频分P，跳过处理")
-            return False
+            return None
         # 获取视频标签
         video_tags_string = " ".join(
             f"#{tag['tag_name']}" for tag in await video.get_video_tags()
@@ -174,16 +205,10 @@ class BaseChain:
         )
         return video, video_info, format_video_name, video_tags_string, video_comments
 
-    async def _get_subtitle_from_bilibili(
-        self, video: BiliVideo, _uuid: str, format_video_name: str
-    ) -> bool | str:
+    async def _get_subtitle_from_bilibili(self, video: BiliVideo, _uuid: str) -> str:
         """从bilibili获取字幕(返回的是纯字幕，不包含时间轴)"""
         _LOGGER = self._LOGGER
         subtitle_url = await video.get_video_subtitle(page_index=0)
-        if subtitle_url is None:
-            _LOGGER.warning(f"视频{format_video_name}因未知原因无法获取字幕，跳过处理")
-            self._set_err_end(_uuid, "视频因未知原因无法获取字幕，跳过处理")
-            return False
         _LOGGER.debug(f"视频字幕获取成功，正在读取字幕")
         # 下载字幕
         async with httpx.AsyncClient() as client:
@@ -194,3 +219,138 @@ class BaseChain:
         for subtitle in resp.json()["body"]:
             text += f"{subtitle['content']}\n"
         return text
+
+    async def _get_subtitle_from_whisper(
+        self,
+        video: BiliVideo,
+        _uuid: str,
+    ) -> str:
+        _LOGGER = self._LOGGER
+        _LOGGER.debug(f"正在获取视频音频流")
+        video_download_url = await video.get_video_download_url()
+        audio_url = video_download_url["dash"]["audio"][0]["baseUrl"]
+        _LOGGER.debug(f"视频下载链接获取成功，正在下载视频中的音频流")
+        bvid = await video.bvid
+        # 下载视频中的音频流
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(audio_url, headers=HEADERS)
+            temp_dir = self.temp_dir
+            if not os.path.exists(temp_dir):
+                os.mkdir(temp_dir)
+            with open(f"{temp_dir}/{bvid} temp.m4s", "wb") as f:
+                f.write(resp.content)
+        _LOGGER.debug(f"视频中的音频流下载成功，正在转换音频格式")
+        # 转换音频格式
+        (
+            ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s")
+            .output(f"{temp_dir}/{bvid} temp.mp3")
+            .run(overwrite_output=True)
+        )
+        _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
+        # 使用whisper转写音频
+        audio_path = f"{temp_dir}/{bvid} temp.mp3"
+        text = await self.whisper_obj.whisper_audio(
+            self.whisper_model_obj,
+            audio_path,
+            after_process=self.whisper_after_process,
+            openai_api_key=self.api_key,
+            openai_endpoint=self.api_base,
+        )
+        _LOGGER.debug(f"音频转写成功，正在删除临时文件")
+        # 删除临时文件
+        os.remove(f"{temp_dir}/{bvid} temp.m4s")
+        os.remove(f"{temp_dir}/{bvid} temp.mp3")
+        _LOGGER.debug(f"临时文件删除成功")
+        return text["text"]
+
+    async def _smart_get_subtitle(
+        self, video: BiliVideo, _uuid: str, format_video_name: str, at_items: AtItems
+    ) -> Optional[str]:
+        """根据用户配置智能获取字幕"""
+        _LOGGER = self._LOGGER
+        subtitle_url = await video.get_video_subtitle(page_index=0)
+        if subtitle_url is None:
+            if self.value_manager.get_variable("whisper-enable") is False:
+                _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
+                self._set_err_end(_uuid, "视频没有字幕，你没有开启whisper，跳过处理")
+                return None
+            _LOGGER.warning(
+                f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
+            )
+            text = await self._get_subtitle_from_whisper(video, _uuid)
+            temp = at_items
+            temp["item"]["whisper_subtitle"] = text
+            self.task_status_recorder.update_record(_uuid, data=temp, use_whisper=True)
+            return text
+        else:
+            _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
+            text = await self._get_subtitle_from_bilibili(video, _uuid)
+            return text
+
+    def _create_record(self, at_items: AtItems) -> str:
+        """创建一条任务记录，返回uuid"""
+        if isinstance(
+            at_items.get("item")
+            .get("private_msg_event", {"content": None})
+            .get("content", None),
+            Video,
+        ):
+            temp = at_items
+            temp["item"]["private_msg_event"]["content"] = temp["item"][
+                "private_msg_event"
+            ]["content"].get_bvid()
+        else:
+            temp = at_items
+        _item_uuid = self.task_status_recorder.create_record(
+            temp,
+            TaskProcessStage.PREPROCESS,
+            TaskProcessEvent.SUMMARIZE,
+            int(time.time()),
+        )
+        return _item_uuid
+
+    @abc.abstractmethod
+    async def main(self):
+        """
+        处理链主函数
+        捕获错误的最佳实践是使用tenacity.retry装饰器，callback也已经写好了，就在utils.callback中
+
+        eg：
+        @tenacity.retry(
+        retry=tenacity.retry_if_exception_type(Exception),
+        wait=tenacity.wait_fixed(10),
+        before_sleep=chain_callback
+        )
+        :return:
+        """
+        pass
+
+    @abc.abstractmethod
+    async def _on_start(self):
+        """
+        这个函数会在main函数开始前自动调用，你可以在这里做一些初始化工作
+        """
+        pass
+
+    @staticmethod
+    def _start_hook(func):
+        """hook main"""
+
+        async def wrapper(self, *args, **kwargs):
+            await self.on_start()
+            return await func(self, *args, **kwargs)
+
+        return wrapper
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.main = cls._start_hook(cls.main)
+
+    @abc.abstractmethod
+    async def retry(self, *args, **kwargs):
+        """
+        重试函数，你可以在这里写重试逻辑
+        这要求你必须在main函数中捕捉错误并进行调用该函数
+        因为llm的返回内容具有不稳定性，所以我强烈建议你实现这个函数。
+        """
+        pass

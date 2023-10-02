@@ -23,7 +23,7 @@ class BiliVideo:
         :param url:
         """
         self.credential = credential
-        self.bvid = bvid
+        self._bvid = bvid
         self.aid = aid
         self.url = url
         self.video_obj: Optional[video.Video] = None
@@ -39,16 +39,18 @@ class BiliVideo:
         elif self.aid:
             self.video_obj = video.Video(aid=self.aid, credential=self.credential)
         elif self.bvid:
-            self.video_obj = video.Video(bvid=self.bvid, credential=self.credential)
+            self.video_obj = video.Video(bvid=self._bvid, credential=self.credential)
         else:
             raise ValueError("缺少必要参数")
         return self.video_obj, _type
 
+    @property
     async def get_video_info(self):
         if not self.video_obj:
             await self.get_video_obj()
         return await self.video_obj.get_info()
 
+    @property
     async def get_video_pages(self):
         if not self.video_obj:
             await self.get_video_obj()
@@ -82,3 +84,16 @@ class BiliVideo:
         for subtitle in json_files:
             if subtitle["lan_doc"] == "中文（自动翻译）" or subtitle["lan_doc"] == "中文（自动生成）":
                 return subtitle["subtitle_url"]
+
+    @property
+    async def bvid(self) -> str:
+        if not self.video_obj:
+            await self.get_video_obj()
+        return self.video_obj.get_bvid()
+
+    @property
+    async def format_title(self) -> str:
+        if not self.video_obj:
+            await self.get_video_obj()
+        info = await self.video_obj.get_info()
+        return f"『{info['title']}』"

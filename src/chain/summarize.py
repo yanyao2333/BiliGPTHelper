@@ -1,20 +1,16 @@
 import asyncio
 import copy
 import json
-import os
 import time
 import traceback
 
-import ffmpeg
-import httpx
 import tenacity
-from bilibili_api import HEADERS
 
 from src.bilibili.bili_session import BiliSession
-from src.bilibili.bili_video import BiliVideo
 from src.chain.base_chain import BaseChain
 from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
+from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 from src.utils.types import *
 
@@ -24,7 +20,7 @@ _LOGGER = LOGGER.bind(name="summarize-chain")
 class SummarizeChain(BaseChain):
     """摘要处理链"""
 
-    async def _check_require(self, at_items: AtItems, _uuid: str) -> bool:
+    async def _precheck(self, at_items: AtItems, _uuid: str) -> bool:
         """检查是否满足处理条件"""
         if (
             at_items["item"]["type"] == "private_msg"
@@ -45,121 +41,9 @@ class SummarizeChain(BaseChain):
             return False
         return True
 
-    async def _get_subtitle_by_whisper(
-        self,
-        video_info,
-        video: BiliVideo,
-        _uuid: str,
-        format_video_name,
-        at_items: AtItems,
-    ) -> bool | str:
-        _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
-        if len(video_info["subtitle"]["list"]) == 0:
-            if self.value_manager.get_variable("whisper-enable") is False:
-                _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
-                self.task_status_recorder.update_record(
-                    _uuid,
-                    stage=TaskProcessStage.END,
-                    end_reason=TaskProcessEndReason.ERROR,
-                    gmt_end=int(time.time()),
-                    error_msg="视频没有字幕，你没有开启whisper，跳过处理",
-                )
-                return False
-            _LOGGER.warning(
-                f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
-            )
-            video_download_url = await video.get_video_download_url()
-            audio_url = video_download_url["dash"]["audio"][0]["baseUrl"]
-            _LOGGER.debug(f"视频下载链接获取成功，正在下载视频中的音频流")
-            # 下载视频中的音频流
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(audio_url, headers=HEADERS)
-                temp_dir = self.temp_dir
-                if not os.path.exists(temp_dir):
-                    os.mkdir(temp_dir)
-                with open(f"{temp_dir}/{video_info['aid']} temp.m4s", "wb") as f:
-                    f.write(resp.content)
-            _LOGGER.debug(f"视频中的音频流下载成功，正在转换音频格式")
-            # 转换音频格式
-            (
-                ffmpeg.input(f"{temp_dir}/{video_info['aid']} temp.m4s")
-                .output(f"{temp_dir}/{video_info['aid']} temp.mp3")
-                .run(overwrite_output=True)
-            )
-            _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
-            # 使用whisper转写音频
-            audio_path = f"{temp_dir}/{video_info['aid']} temp.mp3"
-            text = await self.whisper_obj.whisper_audio(
-                self.whisper_model_obj,
-                audio_path,
-                after_process=self.whisper_after_process,
-                openai_api_key=self.api_key,
-                openai_endpoint=self.api_base,
-            )
-            text = text["text"]
-            temp = at_items
-            temp["item"]["whisper_subtitle"] = text
-            self.task_status_recorder.update_record(_uuid, data=temp, use_whisper=True)
-            _LOGGER.debug(f"音频转写成功，正在删除临时文件")
-            # 删除临时文件
-            os.remove(f"{temp_dir}/{video_info['aid']} temp.m4s")
-            os.remove(f"{temp_dir}/{video_info['aid']} temp.mp3")
-            _LOGGER.debug(f"临时文件删除成功，开始使用模板生成prompt")
-            return text
-
-    async def _send_reply(
-        self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
-    ):
-        _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
-        reply_data = copy.deepcopy(at_items)
-        reply_data["item"]["ai_response"] = resp
-        await self.reply_queue.put(reply_data)
-        _LOGGER.debug(f"结果加入发送队列成功")
-        self.task_status_recorder.update_record(
-            _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
-        )
-        self.cache.set_cache(
-            key=video_info["bvid"], value=BaseChain.cut_items_leaves(reply_data)
-        )
-        self.task_status_recorder.update_record(
-            _uuid,
-            stage=TaskProcessStage.END,
-            end_reason=TaskProcessEndReason.NORMAL,
-            gmt_end=int(time.time()),
-        )
-        _LOGGER.debug(f"设置缓存成功")
-        return True
-
-    async def _send_private(
-        self, at_items: AtItems, resp: dict, video_info: dict, _uuid: str
-    ):
-        _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
-        reply_data = copy.deepcopy(at_items)
-        reply_data["item"]["ai_response"] = resp
-        await self.private_queue.put(reply_data)
-        _LOGGER.debug(f"结果加入私信处理队列成功")
-        # reply_data["item"]["private_msg_event"][
-        #     "content"
-        # ] = reply_data["item"]["private_msg_event"][
-        #     "content"
-        # ].get_bvid()
-        self.task_status_recorder.update_record(
-            _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
-        )
-        self.cache.set_cache(
-            key=video_info["bvid"], value=BaseChain.cut_items_leaves(reply_data)
-        )
-        self.task_status_recorder.update_record(
-            _uuid,
-            stage=TaskProcessStage.END,
-            end_reason=TaskProcessEndReason.NORMAL,
-            gmt_end=int(time.time()),
-        )
-        _LOGGER.debug(f"设置缓存成功")
-        return True
-
     async def _on_start(self):
         """在启动处理链时先处理一下之前没有处理完的视频"""
+        _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
         oncomplete_task = []
         oncomplete_task += self.task_status_recorder.get_record_by_stage(
             TaskProcessStage.PREPROCESS, TaskProcessEvent.SUMMARIZE
@@ -179,27 +63,17 @@ class SummarizeChain(BaseChain):
         for task in oncomplete_task:
             self.summarize_queue.put_nowait(task["data"])
         _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(oncomplete_task)}个")
-        self.task_status_recorder.load_queue(self.summarize_queue)
+        self.task_status_recorder.load_queue(self.summarize_queue, "summarize")
         _LOGGER.info(f"正在将上次在队列中的视频加入队列")
-        self.task_status_recorder.delete_queue()  # FIXME 这里有可能会导致队列丢失，但目前只有这一个队列，先不管
-
-    @staticmethod
-    def chain_callback(retry_state):
-        exception = retry_state.outcome.exception()
-        _LOGGER.error(f"捕获到错误：{exception}")
-        traceback.print_tb(retry_state.outcome.exception().__traceback__)
-        _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
-        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
+        self.task_status_recorder.delete_queue("summarize")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
         wait=tenacity.wait_fixed(10),
         before_sleep=chain_callback,
     )
-    async def start_chain(self):
+    async def main(self):
         try:
-            _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
-            await self._on_start()
             while True:
                 if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
                     _LOGGER.warning(
@@ -214,73 +88,41 @@ class SummarizeChain(BaseChain):
                         "uuid"
                     ]  # TODO 有uuid就一定有视频记录，但如果是继续处理的话，gmt_create时间就会不准确，要不要在读取时再修改一次？
                 else:
-                    if isinstance(
-                        at_items.get("item")
-                        .get("private_msg_event", {"content": None})
-                        .get("content", None),
-                        Video,
-                    ):
-                        temp = at_items
-                        temp["item"]["private_msg_event"]["content"] = temp["item"][
-                            "private_msg_event"
-                        ]["content"].get_bvid()
-                    else:
-                        temp = at_items
-                    _item_uuid = self.task_status_recorder.create_record(
-                        temp,
-                        TaskProcessStage.PREPROCESS,
-                        TaskProcessEvent.SUMMARIZE,
-                        int(time.time()),
-                    )
+                    _item_uuid = self._create_record(at_items)
                 _LOGGER.info(f"摘要处理链获取到任务了：{at_items['item']['uri']}")
                 # 检查是否满足处理条件
-                if not await self._check_require(at_items, _item_uuid):
+                if not await self._precheck(at_items, _item_uuid):
                     continue
                 # 获取视频相关信息
                 data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
-                video = BiliVideo(self.credential, url=at_items["item"]["uri"])
-                video_info = await video.get_video_info()
-                format_video_name = f"『{video_info['title']}』"
+                resp = await self._get_video_info(at_items, _item_uuid)
+                if resp is None:
+                    continue
+                (
+                    video,
+                    video_info,
+                    format_video_name,
+                    video_tags_string,
+                    video_comments,
+                ) = resp
                 if (
                     data["stage"] == TaskProcessStage.PREPROCESS.value
                     or data["stage"] == TaskProcessStage.WAITING_LLM_RESPONSE.value
                 ):
                     begin_time = time.perf_counter()
-                    resp = await self._get_video_info(at_items, _item_uuid)
-                    if type(resp) is bool:
+                    if await self._is_cached_video(at_items, _item_uuid, video_info):
                         continue
-                    (
-                        video,
-                        video_info,
-                        format_video_name,
-                        video_tags_string,
-                        video_comments,
-                    ) = resp
                     # 处理视频音频流和字幕
                     _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
                     if at_items["item"].get("whisper_subtitle", None) is not None:
                         text = at_items["item"]["whisper_subtitle"]
                         _LOGGER.debug(f"使用whisper转写缓存，开始使用模板生成prompt")
                     else:
-                        if len(video_info["subtitle"]["list"]) == 0:
-                            resp = await self._get_subtitle_by_whisper(
-                                video_info,
-                                video,
-                                _item_uuid,
-                                format_video_name,
-                                at_items,
-                            )
-                            if type(resp) is bool:
-                                continue
-                            text = resp
-                            _LOGGER.debug(f"whisper转写成功，开始使用模板生成prompt")
-                        else:
-                            text = await self._get_subtitle_from_bilibili(
-                                video, _item_uuid, format_video_name
-                            )
-                            if type(text) is bool:
-                                continue
-                            _LOGGER.debug(f"字幕转换成功，正在使用模板生成prompt")
+                        text = await self._smart_get_subtitle(
+                            video, _item_uuid, format_video_name, at_items
+                        )
+                        if text is None:
+                            continue
                     _LOGGER.info(
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
@@ -303,13 +145,7 @@ class SummarizeChain(BaseChain):
                     ).completion(prompt, model=self.model)
                     if response is None:
                         _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
-                        self.task_status_recorder.update_record(
-                            _item_uuid,
-                            stage=TaskProcessStage.END,
-                            end_reason=TaskProcessEndReason.ERROR,
-                            gmt_end=int(time.time()),
-                            error_msg="摘要生成失败，请自行检查问题，跳过处理",
-                        )
+                        self._set_err_end(_item_uuid, "摘要生成失败，请自行检查问题，跳过处理")
                         continue
                     answer, tokens = response
                     self.now_tokens += tokens
@@ -327,19 +163,18 @@ class SummarizeChain(BaseChain):
                 ):
                     begin_time = time.perf_counter()
                     answer = at_items["item"]["ai_response"]
-                    video = BiliVideo(self.credential, url=at_items["item"]["uri"])
                     # obj, _type = await video.get_video_obj()
                     # 处理结果
                     if answer:
                         try:
                             if data["stage"] == TaskProcessStage.WAITING_RETRY.value:
                                 raise Exception("触发重试")
-                            if "False" in answer:
+                            if "false" in answer:
                                 answer.replace(
-                                    "False", "false"
+                                    "false", "False"
                                 )  # 解决一部分因为大小写问题导致的json解析失败
-                            if "True" in answer:
-                                answer.replace("True", "true")
+                            if "true" in answer:
+                                answer.replace("true", "True")
                             resp = json.loads(answer)
                             if resp["noneed"] is True:
                                 _LOGGER.warning(
@@ -353,30 +188,15 @@ class SummarizeChain(BaseChain):
                                 # await BiliSession.quick_send(
                                 #     self.credential, at_items, answer
                                 # )
-                                self.task_status_recorder.update_record(
-                                    _item_uuid,
-                                    stage=TaskProcessStage.END,
-                                    end_reason=TaskProcessEndReason.NONEED,
-                                    gmt_end=int(time.time()),
-                                )
+                                self._set_noneed_end(_item_uuid)
                                 continue
                             else:
                                 _LOGGER.info(
                                     f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                                 )
-                                if (
-                                    at_items["item"]["type"] == "private_msg"
-                                    and at_items["item"]["business_id"] == 114
-                                ):
-                                    _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
-                                    await self._send_private(
-                                        at_items, resp, video_info, _item_uuid
-                                    )
-                                else:
-                                    _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
-                                    await self._send_reply(
-                                        at_items, resp, video_info, _item_uuid
-                                    )
+                                await self.finish(
+                                    at_items, resp, video_info["bvid"], _item_uuid
+                                )
 
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
@@ -384,7 +204,7 @@ class SummarizeChain(BaseChain):
                             self.task_status_recorder.update_record(
                                 _item_uuid, stage=TaskProcessStage.WAITING_RETRY
                             )
-                            res = await self.retry_summarize(
+                            res = await self.retry(
                                 answer,
                                 at_items,
                                 format_video_name,
@@ -392,32 +212,18 @@ class SummarizeChain(BaseChain):
                                 video_info,
                             )
                             if res is True:
-                                self.task_status_recorder.update_record(
-                                    _item_uuid,
-                                    stage=TaskProcessStage.END,
-                                    end_reason=TaskProcessEndReason.NORMAL,
-                                    gmt_end=int(time.time()),
-                                    if_retry=True,
-                                )
+                                self._set_normal_end(_item_uuid, if_retry=True)
                             elif res is False:
-                                self.task_status_recorder.update_record(
+                                self._set_err_end(
                                     _item_uuid,
-                                    stage=TaskProcessStage.END,
-                                    end_reason=TaskProcessEndReason.ERROR,
-                                    gmt_end=int(time.time()),
-                                    error_msg="重试后处理结果失败，大概是ai返回的格式不对，跳过",
+                                    "重试后处理结果失败，大概是ai返回的格式不对，跳过",
                                 )
                             elif res is None:
-                                self.task_status_recorder.update_record(
-                                    _item_uuid,
-                                    stage=TaskProcessStage.END,
-                                    end_reason=TaskProcessEndReason.NONEED,
-                                    gmt_end=int(time.time()),
-                                )
+                                self._set_noneed_end(_item_uuid)
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
-    async def retry_summarize(
+    async def retry(
         self, ai_answer, at_item, format_video_name, begin_time, video_info
     ):
         """通过重试prompt让chatgpt重新构建json
