@@ -117,10 +117,16 @@ class BaseChain:
         return items["item"]["ai_response"]
 
     async def finish(
-        self, at_items: AtItems, resp: dict, bvid: str, _uuid: str
+        self,
+        at_items: AtItems,
+        resp: dict,
+        bvid: str,
+        _uuid: str,
+        is_retry: bool = False,
     ) -> bool:
         """
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
+        :param is_retry:
         :param resp: ai的回复
         :param at_items:
         :param _uuid: 任务uuid
@@ -144,7 +150,7 @@ class BaseChain:
             _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
         )
         self.cache.set_cache(key=bvid, value=BaseChain.cut_items_leaves(reply_data))
-        self._set_normal_end(_uuid)
+        self._set_normal_end(_uuid, if_retry=is_retry)
         return True
 
     async def _is_cached_video(

@@ -31,7 +31,7 @@ class BiliVideo:
     async def get_video_obj(self):
         _type = ResourceType.VIDEO
         if self.video_obj:
-            return self.video_obj
+            return self.video_obj, _type
         if self.url:
             self.video_obj, _type = await parse_link(
                 self.url, credential=self.credential

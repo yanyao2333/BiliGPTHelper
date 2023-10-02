@@ -1,18 +1,17 @@
 import asyncio
 import random
-import traceback
 from asyncio import Queue
 from typing import Optional
 
 import tenacity
-from bilibili_api import comment, ResourceType, video
+from bilibili_api import comment, video
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 from src.utils.types import AtItems, AiResponse
-from src.utils.callback import chain_callback
 
 _LOGGER = LOGGER.bind(name="bilibili-comment")
 
@@ -134,12 +133,6 @@ class BiliComment:
                     video_obj, _type = await BiliVideo(
                         credential=self.credential, url=data["item"]["uri"]
                     ).get_video_obj()
-                    if not video_obj:
-                        _LOGGER.warning(f"视频{data['item']['uri']}不存在")
-                        return False
-                    if _type != ResourceType.VIDEO:
-                        _LOGGER.warning(f"视频{data['item']['uri']}不是视频，跳过处理")
-                        return False
                     video_obj: video.Video
                     aid = video_obj.get_aid()
                     if str(aid).startswith("av"):

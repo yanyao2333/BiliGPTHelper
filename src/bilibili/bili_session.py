@@ -1,7 +1,7 @@
 import asyncio
 
 import tenacity
-from bilibili_api import session, ResourceType, video
+from bilibili_api import session, video
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
@@ -60,12 +60,6 @@ class BiliSession:
                 video_obj, _type = await BiliVideo(
                     credential=self.credential, url=data["item"]["uri"]
                 ).get_video_obj()
-                if not video_obj:
-                    _LOGGER.warning(f"视频{data['item']['uri']}不存在")
-                    return False
-                if _type != ResourceType.VIDEO:
-                    _LOGGER.warning(f"视频{data['item']['uri']}不是视频，跳过处理")
-                    return False
                 video_obj: video.Video
                 msg_list = BiliSession.build_reply_content(data["item"]["ai_response"])
                 for msg in msg_list:

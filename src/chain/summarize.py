@@ -1,5 +1,4 @@
 import asyncio
-import copy
 import json
 import time
 import traceback
@@ -204,30 +203,23 @@ class SummarizeChain(BaseChain):
                             self.task_status_recorder.update_record(
                                 _item_uuid, stage=TaskProcessStage.WAITING_RETRY
                             )
-                            res = await self.retry(
+                            await self.retry(
                                 answer,
                                 at_items,
                                 format_video_name,
                                 begin_time,
                                 video_info,
+                                _item_uuid,
                             )
-                            if res is True:
-                                self._set_normal_end(_item_uuid, if_retry=True)
-                            elif res is False:
-                                self._set_err_end(
-                                    _item_uuid,
-                                    "重试后处理结果失败，大概是ai返回的格式不对，跳过",
-                                )
-                            elif res is None:
-                                self._set_noneed_end(_item_uuid)
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
     async def retry(
-        self, ai_answer, at_item, format_video_name, begin_time, video_info
+        self, ai_answer, at_item, format_video_name, begin_time, video_info, _item_uuid
     ):
         """通过重试prompt让chatgpt重新构建json
 
+        :param _item_uuid:
         :param ai_answer: ai返回的内容
         :param at_item: queue中的原始数据
         :param format_video_name: 格式化后的视频名称
@@ -242,7 +234,11 @@ class SummarizeChain(BaseChain):
         )
         if response is None:
             _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
-            return None
+            self._set_err_end(
+                _item_uuid,
+                "重试后处理结果失败，大概是ai返回的格式不对，跳过",
+            )
+            return False
         answer, tokens = response
         _LOGGER.debug(f"openai api输出内容为：{answer}")
         self.now_tokens += tokens
@@ -251,46 +247,21 @@ class SummarizeChain(BaseChain):
                 resp = json.loads(answer)
                 if resp["noneed"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
-                    await BiliSession.quick_send(
-                        self.credential, at_item, f"AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！"
-                    )
-                    # await BiliSession.quick_send(self.credential, at_item, answer)
-                    return None
+                    self._set_noneed_end(_item_uuid)
+                    return False
                 else:
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
-                    if (
-                        at_item["item"]["type"] == "private_msg"
-                        and at_item["item"]["business_id"] == 114
-                    ):
-                        _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
-                        reply_data = copy.deepcopy(at_item)
-                        reply_data["item"]["ai_response"] = resp
-                        await self.private_queue.put(reply_data)
-                        _LOGGER.debug(f"结果加入私信处理队列成功")
-                        # reply_data["item"]["private_msg_event"]["content"] = reply_data[
-                        #     "item"
-                        # ]["private_msg_event"]["content"].get_bvid()
-                        self.cache.set_cache(
-                            key=video_info["bvid"],
-                            value=BaseChain.cut_items_leaves(reply_data),
-                        )
-                        _LOGGER.debug(f"设置缓存成功")
-                        return True
-                    else:
-                        _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
-                        reply_data = copy.deepcopy(at_item)
-                        reply_data["item"]["ai_response"] = resp
-                        self.reply_queue.put(reply_data)
-                        _LOGGER.debug(f"结果加入发送队列成功")
-                        self.cache.set_cache(
-                            key=video_info["bvid"],
-                            value=BaseChain.cut_items_leaves(reply_data),
-                        )
-                        _LOGGER.debug(f"设置缓存成功")
-                        return True
+                    await self.finish(
+                        at_item, resp, video_info["bvid"], _item_uuid, True
+                    )
+                    return True
             except Exception as e:
                 _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
                 traceback.print_tb(e.__traceback__)
+                self._set_err_end(
+                    _item_uuid,
+                    "重试后处理结果失败，大概是ai返回的格式不对，跳过",
+                )
                 return False
