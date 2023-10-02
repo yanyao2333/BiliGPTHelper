@@ -1,5 +1,4 @@
 import asyncio
-import traceback
 
 import tenacity
 from bilibili_api import session, ResourceType, video
@@ -7,6 +6,7 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 from src.utils.types import AtItems, AiResponse
 
@@ -45,14 +45,6 @@ class BiliSession:
             # "https://github.com/yanyao2333/BiliGPTHelper",
         ]
         return msg_list
-
-    @staticmethod
-    def chain_callback(retry_state):
-        exception = retry_state.outcome.exception()
-        _LOGGER.error(f"捕获到错误：{exception}")
-        traceback.print_tb(retry_state.outcome.exception().__traceback__)
-        _LOGGER.debug(f"当前重试次数为{retry_state.attempt_number}")
-        _LOGGER.debug(f"下一次重试将在{retry_state.next_action.sleep}秒后进行")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
