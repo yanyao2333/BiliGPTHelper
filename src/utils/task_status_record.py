@@ -98,7 +98,7 @@ class TaskStatusRecorder:
         return True
 
     def save_queue(
-        self, queue: asyncio.Queue, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
+        self, queue: asyncio.Queue, queue_name: str, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
     ):
         """保存队列"""
         queue_list = []
@@ -116,14 +116,14 @@ class TaskStatusRecorder:
                     "private_msg_event"
                 ]["content"].get_bvid()
             queue_list.append(item)
-        self.queue = queue_list
+        self.queue[queue_name] = queue_list
         self.save()
 
-    def load_queue(self, queue: asyncio.Queue):
+    def load_queue(self, queue: asyncio.Queue, name: str):
         """加载队列"""
-        if "queue" not in self.video_status:
+        if "queue" not in self.video_status or name not in self.video_status["queue"]:
             return
-        for item in self.queue:
+        for item in self.queue[name]:
             queue.put_nowait(item)
 
     def get_uuid_by_data(self, data: AtItems):
@@ -133,10 +133,10 @@ class TaskStatusRecorder:
                 return _uuid
         return None
 
-    def delete_queue(self):
+    def delete_queue(self, name: str):
         """删除队列"""
-        if "queue" in self.video_status:
-            del self.video_status["queue"]
+        if "queue" in self.video_status and name in self.video_status["queue"]:
+            del self.video_status["queue"][name]
             self.save()
 
     def get_data_by_uuid(self, _uuid: str) -> TaskStatus:
