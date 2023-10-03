@@ -1,6 +1,9 @@
-name: ci
+name: push_to_docker
 
-on: [push]
+on:
+  push:
+    tags:
+      - build_docker
 
 jobs:
   docker:
@@ -15,8 +18,15 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
+      - name: Build and push with whisper
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: yanyaobbb/bilibili_gpt_helper:with_whisper
+          target: with_whisper
+      - name: Build and push without whisper
         uses: docker/build-push-action@v5
         with:
           push: true
           tags: yanyaobbb/bilibili_gpt_helper:latest
+          target: without_whisper

@@ -1,4 +1,4 @@
-FROM python:3.11-slim-buster
+FROM python:3.11-slim-buster as base
 
 WORKDIR /usr/src/app
 
@@ -22,4 +22,11 @@ ENV WHISPER_MODELS_DIR=/data/whisper-models
 ENV QUEUE_DIR=/data/queue
 ENV RUNNING_IN_DOCKER yes
 
+FROM base as with_whisper
+RUN pip install --no-cache-dir openai-whisper
+
+CMD ["python", "main.py"]
+
+FROM base as without_whisper
+ENV ENABLE_WHISPER no
 CMD ["python", "main.py"]
