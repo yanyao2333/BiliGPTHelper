@@ -85,6 +85,7 @@ class TaskProcessEvent(Enum):
 
 class AtItem(TypedDict):
     """里面储存着待处理任务的所有信息，私信消息也会被转换为这种格式再处理，后续可以进一步清洗，形成这个项目自己的格式"""
+
     type: str  # 基本都为reply
     business: str  # 基本都为评论
     business_id: int  # 基本都为1

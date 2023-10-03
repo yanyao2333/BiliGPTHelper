@@ -98,7 +98,10 @@ class TaskStatusRecorder:
         return True
 
     def save_queue(
-        self, queue: asyncio.Queue, queue_name: str, event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE
+        self,
+        queue: asyncio.Queue,
+        queue_name: str,
+        event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
     ):
         """保存队列"""
         queue_list = []

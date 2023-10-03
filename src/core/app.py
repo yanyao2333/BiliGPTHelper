@@ -5,7 +5,7 @@ import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Module, singleton, provider
 
-from src.asr.local_whisper import Whisper
+from src.asr.asr_router import ASRouter
 from src.bilibili.bili_credential import BiliCredential
 from src.utils.cache import Cache
 from src.utils.global_variables_manager import GlobalVariablesManager
@@ -91,19 +91,13 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_whisper_model(self, config: Config) -> Whisper:
-        _LOGGER.info("正在预加载whisper模型")
-        whisper = Whisper()
-        _config = config.model_dump()
-        if _config["whisper_enable"]:
-            whisper.load_model(
-                _config["whisper_model_size"],
-                _config["whisper_device"],
-                _config["whisper_model_dir"],
-            )
+    def provide_whisper_model(self) -> ASRouter:
+        _LOGGER.info("正在初始化ASR路由器")
+        if os.getenv("ENABLE_WHISPER", "yes") == "yes":
+            return ASRouter().load_from_dir()  # FIXME 现在只有whisper一个asr，所以直接返回
         else:
-            whisper = None
-        return whisper if whisper else None
+            _LOGGER.warning("未启用whisper，跳过初始化")
+            return None
 
     @singleton
     @provider

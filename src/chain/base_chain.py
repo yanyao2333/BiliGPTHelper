@@ -10,7 +10,7 @@ from bilibili_api import HEADERS
 from bilibili_api.video import Video
 from injector import inject
 
-from src.asr.local_whisper import Whisper
+from src.asr.asr_router import ASRouter
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
@@ -39,19 +39,29 @@ class BaseChain:
         value_manager: GlobalVariablesManager,
         credential: BiliCredential,
         cache: Cache,
-        whisper_obj: Whisper,
+        asr_router: ASRouter,
         task_status_recorder: TaskStatusRecorder,
     ):
         self.queue_manager = queue_manager
         self.value_manager = value_manager
         self.cache = cache
-        self.whisper_obj = whisper_obj
-        self.whisper_model_obj = self.whisper_obj.get_model() if whisper_obj else None
+        self.whisper_obj = asr_router.get("Whisper") if asr_router else None
         self.now_tokens = 0
         self.credential = credential
         self.task_status_recorder = task_status_recorder
         self._get_variables()
         self._get_queues()
+
+        # TODO 我知道这样做很不优雅，有空就改
+        self.whisper_model_obj = (
+            self.whisper_obj.load_model(
+                self.whisper_model_size,
+                self.whisper_device,
+                value_manager.get_variable("whisper_model_dir"),
+            )
+            if self.whisper_obj
+            else None
+        )
         self._LOGGER = LOGGER.bind(name=self.__class__.__name__)
 
     def _get_variables(self):
@@ -255,7 +265,7 @@ class BaseChain:
         _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
         # 使用whisper转写音频
         audio_path = f"{temp_dir}/{bvid} temp.mp3"
-        text = await self.whisper_obj.whisper_audio(
+        text = await self.whisper_obj.transcribe(
             self.whisper_model_obj,
             audio_path,
             after_process=self.whisper_after_process,

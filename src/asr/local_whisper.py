@@ -3,6 +3,7 @@ import time
 
 import whisper as whi
 
+from src.asr.asr_base import ASR
 from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
 from src.utils.logging import LOGGER
@@ -10,7 +11,7 @@ from src.utils.logging import LOGGER
 _LOGGER = LOGGER.bind(name="Whisper")
 
 
-class Whisper:
+class Whisper(ASR):
     def __init__(self):
         self.model = None
 
@@ -32,7 +33,7 @@ class Whisper:
             self.load_model()
         return self.model
 
-    def _run_whisper_audio(
+    def _wait_transcribe(
         self, model, audio_path, after_process, prompt, openai_api_key, openai_endpoint
     ):
         begin_time = time.perf_counter()
@@ -60,7 +61,7 @@ class Whisper:
         _LOGGER.info(f"字幕转译完成，共用时{time_elapsed}s")
         return text
 
-    async def whisper_audio(
+    async def transcribe(
         self,  # 添加self参数以访问线程池
         model,
         audio_path,
@@ -73,7 +74,7 @@ class Whisper:
 
         result = await loop.run_in_executor(
             None,  # None 用于默认的 ThreadPoolExecutor
-            self._run_whisper_audio,
+            self._wait_transcribe,
             model,
             audio_path,
             after_process,

@@ -115,8 +115,10 @@ async def start_pipeline():
 if __name__ == "__main__":
     flag = Status.RUNNING
     _LOGGER = LOGGER.bind(name="main")
+    # 设置环境变量
+    os.environ["ENABLE_WHISPER"] = "no"
 
-    def stop_handler(sig, frame):
+    def stop_handler(_, __):
         global flag
         flag = Status.STOPPED
 
