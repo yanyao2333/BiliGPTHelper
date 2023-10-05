@@ -3,7 +3,6 @@ import time
 from typing import Optional
 
 import whisper as whi
-from injector import inject
 
 from src.asr.asr_base import ASR
 from src.llm.gpt import OpenAIGPTClient
@@ -15,11 +14,13 @@ _LOGGER = LOGGER.bind(name="LocalWhisper")
 
 
 class LocalWhisper(ASR):
-    @inject
+    alias = "local_whisper"
+
     def __init__(self, config: Config):
         super().__init__(config)
         self.model = None
         self.config = config
+        self.alias = "local_whisper"
 
     def prepare(self) -> None:
         """

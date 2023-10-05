@@ -9,8 +9,8 @@ from bilibili_api import session
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
-from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
+from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
 from src.utils.types import *
 
@@ -23,7 +23,8 @@ class Listen:
         self,
         credential: BiliCredential,
         queue_manager: QueueManager,
-        value_manager: GlobalVariablesManager,
+        # value_manager: GlobalVariablesManager,
+        config: Config,
         sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
     ):
         self.sess = None
@@ -32,8 +33,9 @@ class Listen:
         self.evaluate_queue = queue_manager.get_queue("evaluate")
         self.last_at_time = int(time.time())  # 当前时间作为初始时间戳
         self.sched = sched
-        self.value_manager = value_manager
+        # self.value_manager = value_manager
         self.user_sessions = {}  # 存储用户状态和视频信息
+        self.config = config
 
     async def listen_at(self):
         # global run_time
@@ -78,8 +80,8 @@ class Listen:
     async def dispatch_task(self, data: AtItems):
         content = data["item"]["source_content"]
         _LOGGER.info(f"开始处理消息，内容为：{content}")
-        summarize_keyword = self.value_manager.get_variable("summarize-keywords")
-        evaluate_keyword = self.value_manager.get_variable("evaluate-keywords")
+        summarize_keyword = self.config.chain_keywords.summarize_keywords
+        evaluate_keyword = self.config.chain_keywords.evaluate_keywords
         for keyword in summarize_keyword:
             if keyword in content:
                 _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")

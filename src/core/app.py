@@ -8,7 +8,6 @@ from injector import Module, singleton, provider
 from src.asr.asr_router import ASRouter
 from src.bilibili.bili_credential import BiliCredential
 from src.utils.cache import Cache
-from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
 from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
@@ -40,20 +39,20 @@ class BiliGPT(Module):
     @provider
     def provide_config_obj(self) -> Config:
         with open(os.getenv("CONFIG_FILE", "config.yml"), "r", encoding="utf-8") as f:
-            config = flatten_dict(yaml.load(f, Loader=yaml.FullLoader))
+            config = yaml.load(f, Loader=yaml.FullLoader)
         try:
+            # _LOGGER.debug(config)
             config = Config(**config)
         except Exception as e:
             raise ConfigError(f"配置文件格式错误：{e}")
         return config
 
-    @singleton
-    @provider
-    def provide_global_variables_manager(
-        self, config: Config
-    ) -> GlobalVariablesManager:
-        _LOGGER.info("正在初始化全局变量管理器")
-        return GlobalVariablesManager().set_from_dict(config.model_dump())
+    # @singleton
+    # @provider
+    # def provide_global_variables_manager(self, config: Config) -> Config:
+    #     """TODO 过渡期，先保留这个方法"""
+    #     _LOGGER.info("正在初始化全局变量管理器")
+    #     return config
 
     @singleton
     @provider
@@ -64,14 +63,14 @@ class BiliGPT(Module):
     @singleton
     @provider
     def provide_task_status_recorder(self, config: Config) -> TaskStatusRecorder:
-        _LOGGER.info(f"正在初始化任务状态管理器，位置：{config.model_dump()['task_status_records']}")
-        return TaskStatusRecorder(config.model_dump()["task_status_records"])
+        _LOGGER.info(f"正在初始化任务状态管理器，位置：{config.storage_settings.task_status_records}")
+        return TaskStatusRecorder(config.storage_settings.task_status_records)
 
     @singleton
     @provider
     def provide_cache(self, config: Config) -> Cache:
-        _LOGGER.info(f"正在初始化缓存，缓存路径为：{config.model_dump()['cache_path']}")
-        return Cache(config.model_dump()["cache_path"])
+        _LOGGER.info(f"正在初始化缓存，缓存路径为：{config.storage_settings.cache_path}")
+        return Cache(config.storage_settings.cache_path)
 
     @singleton
     @provider
@@ -79,25 +78,22 @@ class BiliGPT(Module):
         self, config: Config, scheduler: AsyncIOScheduler
     ) -> BiliCredential:
         _LOGGER.info("正在初始化cookie")
-        _config = config.model_dump()
         return BiliCredential(
-            SESSDATA=_config["SESSDATA"],
-            bili_jct=_config["bili_jct"],
-            buvid3=_config["buvid3"],
-            dedeuserid=_config["dedeuserid"],
-            ac_time_value=_config["ac_time_value"],
+            SESSDATA=config.bilibili_cookie.SESSDATA,
+            bili_jct=config.bilibili_cookie.bili_jct,
+            dedeuserid=config.bilibili_cookie.dedeuserid,
+            buvid3=config.bilibili_cookie.buvid3,
+            ac_time_value=config.bilibili_cookie.ac_time_value,
             sched=scheduler,
         )
 
     @singleton
     @provider
-    def provide_whisper_model(self) -> ASRouter:
+    def provide_whisper_model(self, config: Config) -> ASRouter:
         _LOGGER.info("正在初始化ASR路由器")
-        if os.getenv("ENABLE_WHISPER", "yes") == "yes":
-            return ASRouter().load_from_dir()  # FIXME 现在只有whisper一个asr，所以直接返回
-        else:
-            _LOGGER.warning("未启用whisper，跳过初始化")
-            return None
+        router = ASRouter(config)
+        router.load_from_dir()
+        return router
 
     @singleton
     @provider
@@ -111,3 +107,8 @@ class BiliGPT(Module):
     ) -> asyncio.Queue:
         _LOGGER.info(f"正在初始化队列 {queue_name}")
         return queue_manager.get_queue(queue_name)
+
+    @singleton
+    @provider
+    def provide_stop_event(self) -> asyncio.Event:
+        return asyncio.Event()

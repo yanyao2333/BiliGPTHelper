@@ -74,11 +74,11 @@ class SummarizeChain(BaseChain):
     async def main(self):
         try:
             while True:
-                if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
-                    _LOGGER.warning(
-                        f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行"
-                    )
-                    raise asyncio.CancelledError
+                # if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
+                #     _LOGGER.warning(
+                #         f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行"
+                #     )
+                #     raise asyncio.CancelledError
 
                 # 从队列中获取摘要
                 at_items: AtItems = await self.summarize_queue.get()

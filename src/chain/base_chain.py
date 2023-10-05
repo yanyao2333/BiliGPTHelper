@@ -1,4 +1,5 @@
 import abc
+import asyncio
 import copy
 import os
 import time
@@ -15,8 +16,8 @@ from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
 from src.utils.cache import Cache
-from src.utils.global_variables_manager import GlobalVariablesManager
 from src.utils.logging import LOGGER
+from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
 from src.utils.task_status_record import TaskStatusRecorder
 from src.utils.types import (
@@ -36,46 +37,32 @@ class BaseChain:
     def __init__(
         self,
         queue_manager: QueueManager,
-        value_manager: GlobalVariablesManager,
+        config: Config,
         credential: BiliCredential,
         cache: Cache,
         asr_router: ASRouter,
         task_status_recorder: TaskStatusRecorder,
+        stop_event: asyncio.Event,
     ):
         self.queue_manager = queue_manager
-        self.value_manager = value_manager
+        self.config = config
         self.cache = cache
-        self.whisper_obj = asr_router.get("Whisper") if asr_router else None
+        self.asr_router = asr_router
         self.now_tokens = 0
         self.credential = credential
         self.task_status_recorder = task_status_recorder
         self._get_variables()
         self._get_queues()
-
-        # TODO 我知道这样做很不优雅，有空就改
-        self.whisper_model_obj = (
-            self.whisper_obj.load_model(
-                self.whisper_model_size,
-                self.whisper_device,
-                value_manager.get_variable("whisper_model_dir"),
-            )
-            if self.whisper_obj
-            else None
-        )
+        self.asr = asr_router.get_one()
         self._LOGGER = LOGGER.bind(name=self.__class__.__name__)
+        self.stop_event = stop_event
 
     def _get_variables(self):
-        """从全局变量管理器获取配置信息"""
-        self.api_key = self.value_manager.get_variable("api_key")
-        self.api_base = self.value_manager.get_variable("api_base")
-        self.temp_dir = self.value_manager.get_variable("temp_dir")
-        self.whisper_model_size = self.value_manager.get_variable("whisper_model_size")
-        self.model = self.value_manager.get_variable("model")
-        self.whisper_device = self.value_manager.get_variable("whisper_device")
-        self.whisper_after_process = self.value_manager.get_variable(
-            "whisper_after_process"
-        )
-        self.max_tokens = self.value_manager.get_variable("max_total_tokens")
+        """从Config获取配置信息"""
+        self.temp_dir = self.config.storage_settings.temp_dir
+        self.api_key = self.config.LLMs.openai.api_key
+        self.api_base = self.config.LLMs.openai.api_base
+        self.model = self.config.LLMs.openai.model
 
     def _get_queues(self):
         """从队列管理器获取队列"""
@@ -237,11 +224,26 @@ class BaseChain:
         return text
 
     async def _get_subtitle_from_whisper(
-        self,
-        video: BiliVideo,
-        _uuid: str,
-    ) -> str:
+        self, video: BiliVideo, _uuid: str, is_retry: bool = False
+    ) -> Optional[str]:
         _LOGGER = self._LOGGER
+        if self.asr is None:
+            _LOGGER.warning(f"没有可用的asr，跳过处理")
+            self._set_err_end(_uuid, "没有可用的asr，跳过处理")
+            self.stop_event.set()  # 停止整个程序
+        if is_retry:
+            # 如果是重试，就默认已下载音频文件，直接开始转写
+            bvid = await video.bvid
+            audio_path = f"{self.temp_dir}/{bvid} temp.mp3"
+            self.asr = self.asr_router.get_one()  # 重新获取一个，防止因为错误而被禁用，但调用端没及时更新
+            text = await self.asr.transcribe(audio_path)
+            if text is None:
+                _LOGGER.warning(f"音频转写失败，报告并重试")
+                self.asr_router.report_error(self.asr.alias)
+                await self._get_subtitle_from_whisper(
+                    video, _uuid, is_retry=True
+                )  # 递归，应该不会爆栈
+            return text
         _LOGGER.debug(f"正在获取视频音频流")
         video_download_url = await video.get_video_download_url()
         audio_url = video_download_url["dash"]["audio"][0]["baseUrl"]
@@ -265,19 +267,19 @@ class BaseChain:
         _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
         # 使用whisper转写音频
         audio_path = f"{temp_dir}/{bvid} temp.mp3"
-        text = await self.whisper_obj.transcribe(
-            self.whisper_model_obj,
-            audio_path,
-            after_process=self.whisper_after_process,
-            openai_api_key=self.api_key,
-            openai_endpoint=self.api_base,
-        )
+        text = await self.asr.transcribe(audio_path)
+        if text is None:
+            _LOGGER.warning(f"音频转写失败，报告并重试")
+            self.asr_router.report_error(self.asr.alias)
+            await self._get_subtitle_from_whisper(
+                video, _uuid, is_retry=True
+            )  # 递归，应该不会爆栈
         _LOGGER.debug(f"音频转写成功，正在删除临时文件")
         # 删除临时文件
         os.remove(f"{temp_dir}/{bvid} temp.m4s")
         os.remove(f"{temp_dir}/{bvid} temp.mp3")
         _LOGGER.debug(f"临时文件删除成功")
-        return text["text"]
+        return text
 
     async def _smart_get_subtitle(
         self, video: BiliVideo, _uuid: str, format_video_name: str, at_items: AtItems
@@ -286,7 +288,7 @@ class BaseChain:
         _LOGGER = self._LOGGER
         subtitle_url = await video.get_video_subtitle(page_index=0)
         if subtitle_url is None:
-            if self.value_manager.get_variable("whisper-enable") is False:
+            if self.config.get_variable("whisper-enable") is False:
                 _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
                 self._set_err_end(_uuid, "视频没有字幕，你没有开启whisper，跳过处理")
                 return None

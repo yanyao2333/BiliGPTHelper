@@ -37,13 +37,13 @@ class ASRouter:
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
                     if inspect.isclass(attr) and issubclass(attr, ASR) and attr != ASR:
-                        _LOGGER.info(f"正在加载 {attr.alias}")
                         self.load(attr)
 
     def load(self, attr):
         """加载一个ASR子类"""
         try:
-            self.__setattr__(attr.alias, attr())
+            self.__setattr__(attr.alias, attr(self.config))
+            _LOGGER.info(f"正在加载 {attr.alias}")
             priority = self.config.ASRs[attr.alias].priority
             enabled = self.config.ASRs[attr.alias].enable
             if priority or enabled is None:
@@ -57,7 +57,7 @@ class ASRouter:
                 "obj": self.get(attr.alias),
             }
         except Exception as e:
-            _LOGGER.error(f"加载 {attr.alias} 失败，错误信息为{e}", exc_info=True)
+            _LOGGER.trace(f"加载 {attr.alias} 失败，错误信息为{e}")
         else:
             _LOGGER.info(f"加载 {attr.alias} 成功，优先级为{priority}，启用状态为{enabled}")
             _LOGGER.debug(f"当前已加载的ASR子类有 {self.asr_list}")
