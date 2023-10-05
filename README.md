@@ -42,15 +42,23 @@
 
 #### 一、通过docker运行
 
+现在有两个版本的docker，代码都是最新版本，只是包不一样:
+1. latest 这个版本不包含whisper，也就是只能用来总结包含字幕的视频。这个镜像只有200多m，适合偶尔使用
+2. with_whisper 这个版本包含whisper，大小达到了2g，但是可以使用语音转文字生成字幕
+
+
+
 ```shell
 docker pull yanyaobbb/bilibili_gpt_helper:latest
+或
+yanyaobbb/bilibili_gpt_helper:with_whisper
 ```
 
 ```shell
 docker run -d \
     --name biligpthelper \
     -v 你本地的biligpt配置文件目录:/data \
-    yanyaobbb/bilibili_gpt_helper:latest
+    yanyaobbb/bilibili_gpt_helper:latest（with_whisper）
 ```
 
 首次运行会创建模板文件，编辑config.yml，然后重启容器即可
