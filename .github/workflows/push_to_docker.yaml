@@ -3,7 +3,7 @@ name: push_to_docker
 on:
   push:
     tags:
-      - build_docker
+      - build_docker_*
 
 jobs:
   docker:
