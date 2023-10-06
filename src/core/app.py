@@ -7,6 +7,7 @@ from injector import Module, singleton, provider
 
 from src.asr.asr_router import ASRouter
 from src.bilibili.bili_credential import BiliCredential
+from src.llm.llm_router import LLMRouter
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
 from src.utils.models import Config
@@ -47,13 +48,6 @@ class BiliGPT(Module):
             raise ConfigError(f"配置文件格式错误：{e}")
         return config
 
-    # @singleton
-    # @provider
-    # def provide_global_variables_manager(self, config: Config) -> Config:
-    #     """TODO 过渡期，先保留这个方法"""
-    #     _LOGGER.info("正在初始化全局变量管理器")
-    #     return config
-
     @singleton
     @provider
     def provide_queue_manager(self) -> QueueManager:
@@ -89,9 +83,17 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_whisper_model(self, config: Config) -> ASRouter:
+    def provide_asr_router(self, config: Config, llm_router: LLMRouter) -> ASRouter:
         _LOGGER.info("正在初始化ASR路由器")
-        router = ASRouter(config)
+        router = ASRouter(config, llm_router)
+        router.load_from_dir()
+        return router
+
+    @singleton
+    @provider
+    def provide_llm_router(self, config: Config) -> LLMRouter:
+        _LOGGER.info("正在初始化LLM路由器")
+        router = LLMRouter(config)
         router.load_from_dir()
         return router
 

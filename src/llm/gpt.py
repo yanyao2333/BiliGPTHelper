@@ -5,25 +5,17 @@ from typing import Tuple
 
 import openai
 
-from src.llm.base import LLMBase
+from src.llm.llm_base import LLMBase
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="openai_gpt")
 
 
-class OpenAIGPTClient(LLMBase):
-    def __init__(self, api_key, endpoint="https://api.openai.com/v1"):
-        self.api_key = api_key
-        self.endpoint = endpoint
+class Openai(LLMBase):
+    def prepare(self):
         self.openai = openai
-        self.set_openai()
-
-    def set_openai(self):
-        self.openai.api_base = self.endpoint
-        self.openai.api_key = self.api_key
-
-    def get_openai(self):
-        return self.openai
+        self.openai.api_base = self.config.LLMs.openai.api_base
+        self.openai.api_key = self.config.LLMs.openai.api_key
 
     def _sync_completion(
         self, prompt, model="gpt-3.5-turbo", **kwargs
@@ -35,7 +27,6 @@ class OpenAIGPTClient(LLMBase):
         :return: 返回生成的文本和token总数 或 None
         """
         try:
-            self.set_openai()
             resp = self.openai.ChatCompletion.create(
                 model=model, messages=prompt, **kwargs
             )
@@ -52,16 +43,15 @@ class OpenAIGPTClient(LLMBase):
             traceback.print_tb(e.__traceback__)
             return None
 
-    async def completion(
-        self, prompt, model="gpt-3.5-turbo", **kwargs
-    ) -> Tuple[str, int] | None:
+    async def completion(self, prompt, **kwargs) -> Tuple[str, int] | None:
         """调用openai的Completion API
-        :param model: 模型名称
         :param prompt: 输入的文本（请确保格式化为openai的prompt格式）
         :param kwargs: 其他参数
         :return: 返回生成的文本和token总数 或 None
         """
         loop = asyncio.get_event_loop()
-        bound_func = partial(self._sync_completion, prompt, model, **kwargs)
+        bound_func = partial(
+            self._sync_completion, prompt, self.config.LLMs.openai.model, **kwargs
+        )
         res = await loop.run_in_executor(None, bound_func)
         return res
