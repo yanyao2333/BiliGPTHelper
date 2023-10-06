@@ -15,6 +15,7 @@ from src.asr.asr_router import ASRouter
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.llm.llm_router import LLMRouter
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
 from src.utils.models import Config
@@ -43,7 +44,9 @@ class BaseChain:
         asr_router: ASRouter,
         task_status_recorder: TaskStatusRecorder,
         stop_event: asyncio.Event,
+        llm_router: LLMRouter,
     ):
+        self.llm_router = llm_router
         self.queue_manager = queue_manager
         self.config = config
         self.cache = cache
@@ -87,6 +90,7 @@ class BaseChain:
             stage=TaskProcessStage.END,
             end_reason=TaskProcessEndReason.NORMAL,
             gmt_end=int(time.time()),
+            if_retry=if_retry,
         )
 
     def _set_noneed_end(self, _uuid: str):

@@ -7,7 +7,7 @@ import tenacity
 
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
-from src.llm.gpt import OpenAIGPTClient
+from src.llm.gpt import Openai
 from src.llm.templates import Templates
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
@@ -128,7 +128,7 @@ class SummarizeChain(BaseChain):
                     self.task_status_recorder.update_record(
                         _item_uuid, stage=TaskProcessStage.WAITING_LLM_RESPONSE
                     )
-                    prompt = OpenAIGPTClient.use_template(
+                    prompt = Openai.use_template(
                         Templates.SUMMARIZE_USER,
                         Templates.SUMMARIZE_SYSTEM,
                         title=video_info["title"],
@@ -139,12 +139,17 @@ class SummarizeChain(BaseChain):
                     )
                     _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
                     # 调用openai的Completion API
-                    response = await OpenAIGPTClient(
-                        self.api_key, self.api_base
-                    ).completion(prompt, model=self.model)
+                    llm = self.llm_router.get_one()
+                    if llm is None:
+                        _LOGGER.warning(f"没有可用的LLM，关闭系统")
+                        self._set_err_end(_item_uuid, "没有可用的LLM，跳过处理")
+                        self.stop_event.set()
+                        continue
+                    response = await llm.completion(prompt)
                     if response is None:
                         _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
                         self._set_err_end(_item_uuid, "摘要生成失败，请自行检查问题，跳过处理")
+                        self.llm_router.report_error(llm.alias)
                         continue
                     answer, tokens = response
                     self.now_tokens += tokens
@@ -228,16 +233,21 @@ class SummarizeChain(BaseChain):
         :return: None
         """
         _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
-        prompt = OpenAIGPTClient.use_template(Templates.RETRY, input=ai_answer)
-        response = await OpenAIGPTClient(self.api_key, self.api_base).completion(
-            prompt, model=self.model
-        )
+        prompt = Openai.use_template(Templates.RETRY, input=ai_answer)
+        llm = self.llm_router.get_one()
+        if llm is None:
+            _LOGGER.warning(f"没有可用的LLM，关闭系统")
+            self._set_err_end(_item_uuid, "没有可用的LLM，跳过处理")
+            self.stop_event.set()
+            return False
+        response = await llm.completion(prompt)
         if response is None:
             _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
             self._set_err_end(
                 _item_uuid,
-                "重试后处理结果失败，大概是ai返回的格式不对，跳过",
+                f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理",
             )
+            self.llm_router.report_error(llm.alias)
             return False
         answer, tokens = response
         _LOGGER.debug(f"openai api输出内容为：{answer}")
