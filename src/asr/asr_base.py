@@ -2,20 +2,20 @@ import abc
 import re
 from typing import Optional
 
-from injector import inject
-
+from src.llm.llm_router import LLMRouter
 from src.utils.models import Config
 
 
 class ASRBase:
     """ASR基类，所有ASR子类都应该继承这个类"""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, llm_router: LLMRouter):
         self.config = config
+        self.llm_router = llm_router
 
     def __new__(cls, *args, **kwargs):
         """将类名转换为alias"""
-        instance = super().__new__(cls)  # 使用cls而不是特定的类名
+        instance = super().__new__(cls)
         name = cls.__name__
         name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
         name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
@@ -41,7 +41,7 @@ class ASRBase:
         """
         pass
 
-    def _wait_transcribe(self, text: str, **kwargs) -> Optional[str]:
+    def _sync_transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
         """
         阻塞转写方法，选择性实现
         """
@@ -50,14 +50,15 @@ class ASRBase:
     async def after_process(self, text: str, **kwargs) -> str:
         """
         后处理方法，例如将转写结果塞回llm，获得更高质量的字幕
-        能别阻塞就别阻塞，你好我也好
+        直接通过self.llm_router调用llm
+        记得代码逻辑一定要是异步
 
         如果处理过程中出错应该返回原字幕
         """
         pass
 
     def __repr__(self):
-        return self.__class__.__name__
+        return self.alias
 
     def __str__(self):
-        return ASRBase.alias
+        return self.__class__.__name__

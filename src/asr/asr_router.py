@@ -1,10 +1,12 @@
 import inspect
 import os
+import traceback
 from typing import Optional
 
 from injector import inject
 
 from src.asr.asr_base import ASRBase
+from src.llm.llm_router import LLMRouter
 from src.utils.logging import LOGGER
 from src.utils.models import Config
 
@@ -15,9 +17,10 @@ class ASRouter:
     """ASR路由器，用于加载所有ASR子类并进行合理路由"""
 
     @inject
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, llm_router: LLMRouter):
         self.config = config
-        self.asr_list = {}
+        self._asr_dict = {}
+        self.llm_router = llm_router
         self.max_err_times = 10  # TODO i know i know，硬编码很不优雅，但这种选项开放给用户似乎也没必要
 
     def load_from_dir(self, py_style_path: str = "src.asr"):
@@ -46,31 +49,33 @@ class ASRouter:
     def load(self, attr):
         """加载一个ASR子类"""
         try:
-            _asr = attr(self.config)
+            _asr = attr(self.config, self.llm_router)
             self.__setattr__(_asr.alias, _asr)
-            _LOGGER.info(f"正在加载 {attr.alias}")
-            priority = self.config.ASRs[attr.alias].priority
-            enabled = self.config.ASRs[attr.alias].enable
-            if priority or enabled is None:
+            _LOGGER.info(f"正在加载 {_asr.alias}")
+            _config = self.config.model_dump()["ASRs"][_asr.alias]
+            priority = _config["priority"]
+            enabled = _config["enable"]
+            if priority is None or enabled is None:
                 raise ValueError
             # 设置属性
-            self.asr_list[attr.alias] = {
+            self.asr_dict[_asr.alias] = {
                 "priority": priority,
                 "enabled": enabled,
                 "prepared": False,
                 "err_times": 0,
-                "obj": self.get(attr.alias),
+                "obj": self.get(_asr.alias),
             }
         except Exception as e:
-            _LOGGER.trace(f"加载 {attr.alias} 失败，错误信息为{e}")
+            _LOGGER.error(f"加载 {str(attr)} 失败，错误信息为{e}")
+            traceback.print_exc()
         else:
-            _LOGGER.info(f"加载 {attr.alias} 成功，优先级为{priority}，启用状态为{enabled}")
-            _LOGGER.debug(f"当前已加载的ASR子类有 {self.asr_list}")
+            _LOGGER.info(f"加载 {_asr.alias} 成功，优先级为{priority}，启用状态为{enabled}")
+            _LOGGER.debug(f"当前已加载的ASR子类有 {self.asr_dict}")
 
     @property
-    def asr_list(self):
+    def asr_dict(self):
         """获取所有已加载的ASR子类"""
-        return self._asr_list
+        return self._asr_dict
 
     def get(self, name):
         """获取一个已加载的ASR子类"""
@@ -80,24 +85,29 @@ class ASRouter:
             _LOGGER.error(f"获取ASR子类失败，错误信息为{e}", exc_info=True)
             return None
 
-    @asr_list.setter
-    def asr_list(self, value):
-        self._asr_list = value
+    @asr_dict.setter
+    def asr_dict(self, value):
+        self._asr_dict = value
 
     def order(self):
         """
         对ASR子类进行排序
         优先级高的排在前面，未启用的排在最后"""
-        self.asr_list = sorted(
-            self.asr_list,
-            key=lambda x: (not x.get("enable", True), x["priority"]),
-            reverse=True,
+        self.asr_dict = dict(
+            sorted(
+                self.asr_dict.items(),
+                key=lambda item: (
+                    not item[1].get("enabled", True),
+                    item[1]["priority"],
+                ),
+                reverse=True,
+            )
         )
 
     def get_one(self) -> Optional[ASRBase]:
         """根据优先级获取一个可用的ASR子类，如果所有都不可用则返回None"""
         self.order()
-        for asr in self.asr_list:
+        for asr in self.asr_dict.values():
             if asr["enabled"]:
                 if asr["err_times"] <= 10:
                     if not asr["prepared"]:
@@ -109,7 +119,7 @@ class ASRouter:
 
     def report_error(self, name: str):
         """报告一个ASR子类的错误"""
-        for asr in self.asr_list:
+        for asr in self.asr_dict.values():
             if asr["obj"].alias == name:
                 asr["err_times"] += 1
                 if asr["err_times"] >= self.max_err_times:
@@ -118,4 +128,4 @@ class ASRouter:
         else:
             raise ValueError(f"ASR子类 {name} 不存在")
         _LOGGER.info(f"{name} 发生错误，已累计错误{asr['err_times']}次")
-        _LOGGER.debug(f"当前已加载的ASR子类有 {self.asr_list}")
+        _LOGGER.debug(f"当前已加载的ASR子类有 {self.asr_dict}")
