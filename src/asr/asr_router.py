@@ -4,7 +4,7 @@ from typing import Optional
 
 from injector import inject
 
-from src.asr.asr_base import ASR
+from src.asr.asr_base import ASRBase
 from src.utils.logging import LOGGER
 from src.utils.models import Config
 
@@ -36,13 +36,18 @@ class ASRouter:
                 )
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if inspect.isclass(attr) and issubclass(attr, ASR) and attr != ASR:
+                    if (
+                        inspect.isclass(attr)
+                        and issubclass(attr, ASRBase)
+                        and attr != ASRBase
+                    ):
                         self.load(attr)
 
     def load(self, attr):
         """加载一个ASR子类"""
         try:
-            self.__setattr__(attr.alias, attr(self.config))
+            _asr = attr(self.config)
+            self.__setattr__(_asr.alias, _asr)
             _LOGGER.info(f"正在加载 {attr.alias}")
             priority = self.config.ASRs[attr.alias].priority
             enabled = self.config.ASRs[attr.alias].enable
@@ -89,7 +94,7 @@ class ASRouter:
             reverse=True,
         )
 
-    def get_one(self) -> Optional[ASR]:
+    def get_one(self) -> Optional[ASRBase]:
         """根据优先级获取一个可用的ASR子类，如果所有都不可用则返回None"""
         self.order()
         for asr in self.asr_list:

@@ -4,7 +4,7 @@ from typing import Optional
 
 import whisper as whi
 
-from src.asr.asr_base import ASR
+from src.asr.asr_base import ASRBase
 from src.llm.gpt import OpenAIGPTClient
 from src.llm.templates import Templates
 from src.utils.logging import LOGGER
@@ -13,7 +13,7 @@ from src.utils.models import Config
 _LOGGER = LOGGER.bind(name="LocalWhisper")
 
 
-class LocalWhisper(ASR):
+class LocalWhisper(ASRBase):
     alias = "local_whisper"
 
     def __init__(self, config: Config):
