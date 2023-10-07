@@ -115,6 +115,8 @@ class ASRouter:
                         asr["obj"].prepare()
                         asr["prepared"] = True
                     return asr["obj"]
+        else:
+            _LOGGER.error(f"没有可用的ASR子类")
         return None
 
     def report_error(self, name: str):

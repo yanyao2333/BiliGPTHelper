@@ -227,14 +227,13 @@ class BaseChain:
             text += f"{subtitle['content']}\n"
         return text
 
-    async def _get_subtitle_from_whisper(
+    async def _get_subtitle_from_asr(
         self, video: BiliVideo, _uuid: str, is_retry: bool = False
     ) -> Optional[str]:
         _LOGGER = self._LOGGER
         if self.asr is None:
             _LOGGER.warning(f"没有可用的asr，跳过处理")
             self._set_err_end(_uuid, "没有可用的asr，跳过处理")
-            self.stop_event.set()  # 停止整个程序
         if is_retry:
             # 如果是重试，就默认已下载音频文件，直接开始转写
             bvid = await video.bvid
@@ -244,7 +243,7 @@ class BaseChain:
             if text is None:
                 _LOGGER.warning(f"音频转写失败，报告并重试")
                 self.asr_router.report_error(self.asr.alias)
-                await self._get_subtitle_from_whisper(
+                await self._get_subtitle_from_asr(
                     video, _uuid, is_retry=True
                 )  # 递归，应该不会爆栈
             return text
@@ -275,9 +274,7 @@ class BaseChain:
         if text is None:
             _LOGGER.warning(f"音频转写失败，报告并重试")
             self.asr_router.report_error(self.asr.alias)
-            await self._get_subtitle_from_whisper(
-                video, _uuid, is_retry=True
-            )  # 递归，应该不会爆栈
+            await self._get_subtitle_from_asr(video, _uuid, is_retry=True)  # 递归，应该不会爆栈
         _LOGGER.debug(f"音频转写成功，正在删除临时文件")
         # 删除临时文件
         os.remove(f"{temp_dir}/{bvid} temp.m4s")
@@ -292,14 +289,12 @@ class BaseChain:
         _LOGGER = self._LOGGER
         subtitle_url = await video.get_video_subtitle(page_index=0)
         if subtitle_url is None:
-            if self.config.get_variable("whisper-enable") is False:
-                _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有开启whisper，跳过处理")
-                self._set_err_end(_uuid, "视频没有字幕，你没有开启whisper，跳过处理")
+            if self.asr is None:
+                _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有可用的asr，跳过处理")
+                self._set_err_end(_uuid, "视频没有字幕，你没有可用的asr，跳过处理")
                 return None
-            _LOGGER.warning(
-                f"视频{format_video_name}没有字幕，开始使用whisper转写并处理，时间会更长（长了不是一点点）"
-            )
-            text = await self._get_subtitle_from_whisper(video, _uuid)
+            _LOGGER.warning(f"视频{format_video_name}没有字幕，开始使用asr转写，这可能会导致字幕质量下降")
+            text = await self._get_subtitle_from_asr(video, _uuid)
             temp = at_items
             temp["item"]["whisper_subtitle"] = text
             self.task_status_recorder.update_record(_uuid, data=temp, use_whisper=True)

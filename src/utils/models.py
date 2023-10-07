@@ -34,13 +34,37 @@ class Openai(BaseModel):
     api_base: str = Field(default="https://api.openai.com/v1")
 
     @field_validator("api_key", "model", mode="after")
-    def check_required_fields(cls, value):
+    def check_required_fields(cls, value, values):
+        if values.data.get("enable") is False:
+            return value
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
 
 class LLMs(BaseModel):
     openai: Openai
+
+
+class OpenaiWhisper(BaseModel):
+    BaseModel.model_config['protected_namespaces'] = ()
+    enable: bool = False
+    priority: int = 70
+    api_key: str
+    model: str = "whisper-1"
+    api_base: str = Field(default="https://api.openai.com/v1")
+
+    @field_validator("api_key", mode="after")
+    def check_required_fields(cls, value, values):
+        if values.data.get("enable") is False:
+            return value
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+    @field_validator("model", mode="after")
+    def check_model(cls, value, values):
+        value = "whisper-1"
+        return value
 
 
 class LocalWhisper(BaseModel):
@@ -75,6 +99,7 @@ class LocalWhisper(BaseModel):
 
 class ASRs(BaseModel):
     local_whisper: LocalWhisper
+    openai_whisper: OpenaiWhisper
 
 class StorageSettings(BaseModel):
     cache_path: str = Field(

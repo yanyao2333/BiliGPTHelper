@@ -58,7 +58,7 @@ class ASRBase:
         pass
 
     def __repr__(self):
-        return self.alias
+        return f"<{self.alias} ASR>"
 
     def __str__(self):
         return self.__class__.__name__
