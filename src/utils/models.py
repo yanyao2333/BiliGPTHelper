@@ -52,6 +52,7 @@ class OpenaiWhisper(BaseModel):
     api_key: str
     model: str = "whisper-1"
     api_base: str = Field(default="https://api.openai.com/v1")
+    after_process: bool = False
 
     @field_validator("api_key", mode="after")
     def check_required_fields(cls, value, values):
