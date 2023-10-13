@@ -3,8 +3,6 @@ import time
 import traceback
 from typing import Optional
 
-import whisper as whi
-
 from src.asr.asr_base import ASRBase
 from src.llm.llm_router import LLMRouter
 from src.llm.templates import Templates
@@ -29,6 +27,8 @@ class LocalWhisper(ASRBase):
         _LOGGER.info(
             f"正在加载whisper模型，模型大小{self.config.ASRs.local_whisper.model_size}，设备{self.config.ASRs.local_whisper.device}"
         )
+        import whisper as whi
+
         self.model = whi.load_model(
             self.config.ASRs.local_whisper.model_size,
             self.config.ASRs.local_whisperdevice,
