@@ -146,7 +146,7 @@ class BaseChain:
         else:
             _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
-        _LOGGER.debug("开始后处理")
+        _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
             _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
         )
@@ -359,9 +359,10 @@ class BaseChain:
 
         return wrapper
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.main = cls._start_hook(cls.main)
+    #
+    # def __init_subclass__(cls, **kwargs):
+    #     super().__init_subclass__(**kwargs)
+    #     cls.main = cls._start_hook(cls.main)
 
     @abc.abstractmethod
     async def retry(self, *args, **kwargs):

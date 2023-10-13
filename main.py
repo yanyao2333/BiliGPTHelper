@@ -110,7 +110,9 @@ class BiliGPTPipeline:
                 comment_task.cancel()
                 private_task.cancel()
                 _LOGGER.info("正在生成本次运行的统计报告")
-                statistics_dir = injector.get(Config).model_dump()["statistics_dir"]
+                statistics_dir = injector.get(Config).model_dump()["storage_settings"][
+                    "statistics_dir"
+                ]
                 run_statistic(
                     statistics_dir if statistics_dir else "./statistics",
                     injector.get(TaskStatusRecorder).tasks,

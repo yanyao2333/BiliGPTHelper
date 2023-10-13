@@ -73,6 +73,7 @@ class SummarizeChain(BaseChain):
     )
     async def main(self):
         try:
+            await self._on_start()
             while True:
                 # if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
                 #     _LOGGER.warning(
