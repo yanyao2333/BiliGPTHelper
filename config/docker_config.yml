@@ -35,16 +35,12 @@ bilibili_cookie: # https://nemo2011.github.io/bilibili-api/#/get-credential 获�
 
 chain_keywords:
   evaluate_keywords: # 用于生成摘要的关键词，如果at/私信内容包含以下关键词，将会生成摘要
+    - "锐评一下"
+  summarize_keywords: # 用于生成评价的关键词，如果at/私信内容包含以下关键词，将会生成评价（该功能开发中）
     - "总结"
     - "总结一下"
     - "总结一下吧"
     - "总结一下吧！"
-  summarize_keywords: # 用于生成评价的关键词，如果at/私信内容包含以下关键词，将会生成评价（该功能开发中）
-    - "锐评视频"
-    - "锐评"
-    - "锐评一下"
-    - "锐评一下吧"
-    - "锐评一下吧！"
 
 
 storage_settings:
