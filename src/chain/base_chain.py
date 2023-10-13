@@ -331,6 +331,7 @@ class BaseChain:
         """
         处理链主函数
         捕获错误的最佳实践是使用tenacity.retry装饰器，callback也已经写好了，就在utils.callback中
+        如果实现_on_start的话别忘了在循环代码前调用
 
         eg：
         @tenacity.retry(
@@ -345,24 +346,10 @@ class BaseChain:
     @abc.abstractmethod
     async def _on_start(self):
         """
-        这个函数会在main函数开始前自动调用，你可以在这里做一些初始化工作
+        在这里完成一些初始化任务，比如将已保存的未处理任务恢复到队列中
+        记得在main中调用啊！
         """
         pass
-
-    @staticmethod
-    def _start_hook(func):
-        """hook main"""
-
-        async def wrapper(self, *args, **kwargs):
-            await self.on_start()
-            return await func(self, *args, **kwargs)
-
-        return wrapper
-
-    #
-    # def __init_subclass__(cls, **kwargs):
-    #     super().__init_subclass__(**kwargs)
-    #     cls.main = cls._start_hook(cls.main)
 
     @abc.abstractmethod
     async def retry(self, *args, **kwargs):
