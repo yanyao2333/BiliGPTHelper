@@ -1,3 +1,7 @@
+import asyncio
+import functools
+import time
+import traceback
 from typing import Optional
 
 import openai
@@ -17,7 +21,7 @@ class OpenaiWhisper(ASRBase):
             f"初始化OpenaiWhisper，api_key为{apikey}，api端点为{self.config.ASRs.openai_whisper.api_base}"
         )
 
-    async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
+    def _sync_transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
         openai.api_key = self.config.ASRs.openai_whisper.api_key
         openai.api_base = self.config.ASRs.openai_whisper.api_base
         response = openai.Audio.transcribe(
@@ -29,6 +33,25 @@ class OpenaiWhisper(ASRBase):
             return None
 
         return response.json()["text"]
+
+    async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
+        loop = asyncio.get_event_loop()
+        func = functools.partial(self._sync_transcribe, audio_path, **kwargs)
+        result = await loop.run_in_executor(None, func)
+        w = self.config.ASRs.openai_whisper
+        try:
+            if w.after_process and result is not None:
+                bt = time.perf_counter()
+                _LOGGER.info(f"正在进行后处理")
+                text = await self.after_process(result)
+                _LOGGER.debug(f"后处理完成，用时{time.perf_counter()-bt}s")
+                return text
+            else:
+                return result
+        except Exception as e:
+            _LOGGER.error(f"后处理失败，错误信息为{e}")
+            traceback.print_exc()
+            return result
 
     async def after_process(self, text: str, **kwargs) -> str:
         llm = self.llm_router.get_one()

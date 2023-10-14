@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import time
 import traceback
 from typing import Optional
@@ -52,6 +53,8 @@ class LocalWhisper(ASRBase):
             _LOGGER.info(f"开始转写 {audio_path}")
             if self.model is None:
                 return None
+            import whisper as whi
+
             text = whi.transcribe(self.model, audio_path)
             text = text["text"]
             _LOGGER.debug(f"转写成功")
@@ -65,11 +68,9 @@ class LocalWhisper(ASRBase):
     async def transcribe(self, audio_path, **kwargs) -> Optional[str]:  # 添加self参数以访问线程池
         loop = asyncio.get_event_loop()
 
-        result = await loop.run_in_executor(
-            None,  # None 用于默认的 ThreadPoolExecutor
-            self._sync_transcribe,
-            audio_path,
-        )
+        func = functools.partial(self._sync_transcribe, audio_path, **kwargs)
+
+        result = await loop.run_in_executor(None, func)
         w = self.config.ASRs.local_whisper
         try:
             if w.after_process and result is not None:
