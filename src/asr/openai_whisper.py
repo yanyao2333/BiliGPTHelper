@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import json
 import time
 import traceback
 from typing import Optional
@@ -28,11 +29,17 @@ class OpenaiWhisper(ASRBase):
             model="whisper-1", file=open(audio_path, "rb")
         )
 
-        if response.status_code != 200:
-            _LOGGER.error(f"转写失败，api返回信息为：{response.json()}")
-            return None
+        _LOGGER.debug(f"返回内容为{response}")
 
-        return response.json()["text"]
+        if isinstance(response, dict) and "text" in response:
+            return response["text"]
+        else:
+            try:
+                response = json.loads(response)
+                return response["text"]
+            except Exception as e:
+                _LOGGER.error(f"返回内容不是字典或者没有text字段，返回None")
+                return None
 
     async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
         loop = asyncio.get_event_loop()

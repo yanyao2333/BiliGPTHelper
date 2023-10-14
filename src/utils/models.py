@@ -132,3 +132,4 @@ class Config(BaseModel):
     LLMs: LLMs
     ASRs: ASRs
     storage_settings: StorageSettings
+    debug_mode: bool = False

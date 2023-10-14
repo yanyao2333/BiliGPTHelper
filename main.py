@@ -1,6 +1,7 @@
 import asyncio
 import os
 import signal
+import sys
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Injector
@@ -37,6 +38,11 @@ class BiliGPTPipeline:
         self.injector = Injector(BiliGPT)
 
         BiliGPTPipeline.stop_event = self.injector.get(asyncio.Event)
+        config = self.injector.get(Config)
+
+        if config.debug_mode is False:
+            LOGGER.remove()
+            LOGGER.add(sys.stdout, level="INFO")
 
     @staticmethod
     def stop_handler(_, __):

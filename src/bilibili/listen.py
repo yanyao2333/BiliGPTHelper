@@ -136,20 +136,40 @@ class Listen:
 
     async def handle_video(self, user_id, event):
         _session = self.user_sessions.get(user_id, {"status": "idle", "event": None})
-        if _session["status"] == "idle" or _session["status"] == "waiting_for_keyword":
-            _session["status"] = "waiting_for_keyword"
-            _session["event"] = event  # 只保留最后一个事件对象
+        match _session["status"]:
+            case "idle" | "waiting_for_keyword":
+                _session["status"] = "waiting_for_keyword"
+                _session["event"] = event
+
+            case "waiting_for_video":
+                at_items = self.build_private_msg_to_at_items(event)
+                at_items["item"]["source_content"] = _session["event"]["content"]  # type: ignore
+                _session["status"] = "idle"
+                _session["event"] = None
+
+            case _:
+                pass
         self.user_sessions[user_id] = _session
 
     async def handle_text(self, user_id, text):
         _session = self.user_sessions.get(user_id, {"status": "idle", "event": None})
-        if _session["status"] == "waiting_for_keyword":
-            at_items = self.build_private_msg_to_at_items(_session["event"])  # type: ignore
-            at_items["item"]["source_content"] = text  # 将文本消息填入at内容
-            await self.dispatch_task(at_items)
-            _session["status"] = "idle"
-            _session["event"] = None
-        # 其他状态下的文本消息将被忽略
+        match _session["status"]:
+            case "waiting_for_keyword":
+                at_items = self.build_private_msg_to_at_items(_session["event"])  # type: ignore
+                at_items["item"]["source_content"] = text  # 将文本消息填入at内容
+                await self.dispatch_task(at_items)
+                _session["status"] = "idle"
+                _session["event"] = None
+
+            case "idle":
+                _session["event"]["text_content"] = text  # type: ignore
+                _session["status"] = "waiting_for_video"
+
+            case "waiting_for_video":
+                _session["event"]["text_content"] = text  # type: ignore
+
+            case _:
+                pass
         self.user_sessions[user_id] = _session
 
     async def on_receive(self, event: session.Event):

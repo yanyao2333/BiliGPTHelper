@@ -49,3 +49,5 @@ storage_settings:
   statistics_dir: /data/statistics # 用于存放统计数据，如果更改要映射出来
   task_status_records: /data/records.json # 用于记录任务状态，如果更改要映射出来，不能留空
   temp_dir: /data/temp # 主要用于下载视频音频生成字幕，如果更改要映射出来
+
+debug_mode: true # 是否开启debug模式，开启后会打印更多日志，建议开启，以便于查找bug
