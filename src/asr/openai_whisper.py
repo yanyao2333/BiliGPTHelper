@@ -1,6 +1,6 @@
 from typing import Optional
 
-from httpx import AsyncClient
+import openai
 
 from src.asr.asr_base import ASRBase
 from src.llm.templates import Templates
@@ -18,26 +18,17 @@ class OpenaiWhisper(ASRBase):
         )
 
     async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
-        async with AsyncClient() as client:
-            endpoint = self.config.ASRs.openai_whisper.api_base
-            api = "/audio/transcriptions"
-            url = endpoint + api if endpoint.endswith("/") else endpoint + "/" + api
-            headers = {
-                "Authorization": f"Bearer {self.config.ASRs.openai_whisper.api_key}",
-            }
+        openai.api_key = self.config.ASRs.openai_whisper.api_key
+        openai.api_base = self.config.ASRs.openai_whisper.api_base
+        response = openai.Audio.transcribe(
+            model="whisper-1", file=open(audio_path, "rb")
+        )
 
-            files = {
-                "file": open(audio_path, "rb"),
-            }
-            data = {"model": self.config.ASRs.openai_whisper.model}
+        if response.status_code != 200:
+            _LOGGER.error(f"转写失败，api返回信息为：{response.json()}")
+            return None
 
-            response = await client.post(url, headers=headers, files=files, data=data)
-
-            if response.status_code != 200:
-                _LOGGER.error(f"转写失败，api返回信息为：{response.json()}")
-                return None
-
-            return response.json()["text"]
+        return response.json()["text"]
 
     async def after_process(self, text: str, **kwargs) -> str:
         llm = self.llm_router.get_one()
