@@ -1,11 +1,16 @@
 <h2 align="center">✨Bili GPT Helper✨</h2>
 <h5 align="center">基于LLM的B站人形自走bot</h5>
 
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ### 🌟 介绍
 
-最初的idea来源于b站上不断涌现的AI总结机器人，但效果都不太好，还不是开源，那干脆就自己做一个！
+你可以把它简单看作是b站那些总结机器人的开源版，但它也并不简单，使用这个项目，你可以快速轻松对接你已经拥有的语音转文字、大语言模型接口，不必再因为接口不适配而发愁。
 
-于是，这个项目就诞生了。首先叠个甲，我的码力肯定是不如那些大佬的，so...有什么bug还请见谅
+该项目还拥有以优先级为基础的语音转文字、大语言模型接口调度，在某个接口达到一定出错阈值后自动切换其他接口，保证程序稳定性。
+
+其他更多请看下面的Features主题！
 
 ### 📜 声明
 
