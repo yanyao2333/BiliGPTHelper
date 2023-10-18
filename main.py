@@ -13,6 +13,7 @@ from src.chain.summarize import SummarizeChain
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
 from src.utils.logging import LOGGER
+from src.utils.merge_config import *
 from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
 from src.utils.statistic import run_statistic
@@ -32,6 +33,25 @@ class BiliGPTPipeline:
         if os.getenv("RUNNING_IN_DOCKER") == "yes":
             if not os.listdir("/data"):
                 os.system("cp -r /clone-data/* /data")
+
+        config_path = "./config.yml"
+
+        if os.getenv("RUNNING_IN_DOCKER") == "yes":
+            temp = "./config/docker_config.yml"
+            conf = load_config(config_path)
+            template = load_config(temp)
+            if is_have_diff(conf, template):
+                _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
+                merge_config(conf, template)
+                save_config(conf, config_path)
+        else:
+            temp = "./config/example_config.yml"
+            conf = load_config(config_path)
+            template = load_config(temp)
+            if is_have_diff(conf, template):
+                _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
+                merge_config(conf, template)
+                save_config(conf, config_path)
 
         # 初始化注入器
         _LOGGER.info("正在初始化注入器")

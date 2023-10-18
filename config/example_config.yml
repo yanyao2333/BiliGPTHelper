@@ -1,0 +1,53 @@
+ASRs:
+  local_whisper: # 本地的whisper
+    enable: false # 是否启用whisper，在视频无字幕时生成字幕，否则该视频将自动跳过
+    priority: 50 # 优先级，数字越大优先级越高，程序在选择时会更倾向于选择优先级高的
+    after_process: false # 是否再使用llm优化生成字幕结果，最终字幕效果会大幅提升
+    device: cpu  # cpu or cuda（仅在运行源代码时可用，docker运行只能选择cpu）
+    model_dir: /data/whisper-models # 本地模型存放目录，如果更改要映射出来
+    model_size: tiny  # tiny, base, small, medium, large 详细选择请去：https://github.com/openai/whisper
+
+  openai_whisper:
+    enable: false # 是否启用openai whisper
+    priority: 100 # 优先级，数字越大优先级越高，程序在选择时会更倾向于选择优先级高的
+    api_base: https://api.openai.com/v1 # 你的openai api base url（多数在使用第三方api供应商时会有，记得url尾缀有/v1）
+    api_key: '' # 你的openai api key
+    model: whisper-1 # 有且仅有这一个模型，不要改
+    after_process: false # 是否再使用llm优化生成字幕结果，最终字幕效果会大幅提升
+
+
+
+LLMs:
+  openai: # 对接gpt
+    enable: true # 是否启用openai
+    priority: 100 # 优先级，数字越大优先级越高，程序在选择时会更倾向于选择优先级高的
+    api_base: https://api.openai.com/v1 # 你的openai api base url（多数在使用第三方api供应商时会有，记得url尾缀有/v1）
+    api_key: '' # 你的openai api key
+    model: gpt-3.5-turbo-16k # 选择模型，我现在只推荐使用gpt-3.5-turbo-16k，其他模型容纳不了这么大的token，如果你有gpt-4-16k权限，还钱多，请自便
+
+
+bilibili_cookie: # https://nemo2011.github.io/bilibili-api/#/get-credential 获取cookie 下面五个值都要填
+  SESSDATA: ''
+  ac_time_value: ''
+  bili_jct: ''
+  buvid3: ''
+  dedeuserid: ''
+
+
+chain_keywords:
+  evaluate_keywords: # 用于生成摘要的关键词，如果at/私信内容包含以下关键词，将会生成摘要
+    - "锐评一下"
+  summarize_keywords: # 用于生成评价的关键词，如果at/私信内容包含以下关键词，将会生成评价（该功能开发中）
+    - "总结"
+    - "总结一下"
+    - "总结一下吧"
+    - "总结一下吧！"
+
+
+storage_settings:
+  cache_path: /data/cache.json # 用于缓存已经处理过的视频，如果更改要映射出来
+  statistics_dir: /data/statistics # 用于存放统计数据，如果更改要映射出来
+  task_status_records: /data/records.json # 用于记录任务状态，如果更改要映射出来，不能留空
+  temp_dir: /data/temp # 主要用于下载视频音频生成字幕，如果更改要映射出来
+
+debug_mode: true # 是否开启debug模式，开启后会打印更多日志，建议开启，以便于查找bug
