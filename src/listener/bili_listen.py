@@ -1,4 +1,4 @@
-"""侦听at消息和私聊转发视频消息"""
+"""监听bilibili平台的私信、at消息"""
 
 import time
 from copy import deepcopy

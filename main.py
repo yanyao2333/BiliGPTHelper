@@ -9,9 +9,9 @@ from injector import Injector
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
-from src.bilibili.listen import Listen
 from src.chain.summarize import SummarizeChain
 from src.core.app import BiliGPT
+from src.listener.bili_listen import Listen
 from src.utils.logging import LOGGER
 from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
