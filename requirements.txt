@@ -10,3 +10,4 @@ ffmpeg-python
 matplotlib
 injector
 pydantic
+anthropic

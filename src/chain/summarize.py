@@ -138,7 +138,7 @@ class SummarizeChain(BaseChain):
                         subtitle=text,
                         description=video_info["desc"],
                     )
-                    _LOGGER.debug(f"prompt生成成功，开始调用openai的Completion API")
+                    _LOGGER.debug(f"prompt生成成功，开始调用llm")
                     # 调用openai的Completion API
                     llm = self.llm_router.get_one()
                     if llm is None:
@@ -154,8 +154,8 @@ class SummarizeChain(BaseChain):
                         continue
                     answer, tokens = response
                     self.now_tokens += tokens
-                    _LOGGER.debug(f"openai api输出内容为：{answer}")
-                    _LOGGER.debug(f"调用openai的Completion API成功，开始处理结果")
+                    _LOGGER.debug(f"llm输出内容为：{answer}")
+                    _LOGGER.debug(f"调用llm成功，开始处理结果")
                     at_items["item"]["ai_response"] = answer
                     self.task_status_recorder.update_record(
                         _item_uuid, stage=TaskProcessStage.WAITING_SEND, data=at_items

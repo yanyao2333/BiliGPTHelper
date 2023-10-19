@@ -163,7 +163,19 @@ class Listen:
 
             case "idle":
                 _session["event"]["text_content"] = text  # type: ignore
-                _session["status"] = "waiting_for_video"
+                _session["status"] = "waiting_for_video"  # FIXME 这里还是有问题 但暂时先放过他 不影响使用
+                """
+                错误日志：
+                Task exception was never retrieved
+                future: <Task finished name='Task-16' coro=<Listen.on_receive() done, defined at D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py:175> exception=TypeError("'NoneType' object does not support item assignment")>
+                Traceback (most recent call last):
+                    File "D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py", line 182, in on_receive
+                        await self.handle_text(data["sender_uid"], data["content"])
+                    File "D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py", line 165, in handle_text
+                        _session["event"]["text_content"] = text  # type: ignore
+                    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                TypeError: 'NoneType' object does not support item assignment
+                """
 
             case "waiting_for_video":
                 _session["event"]["text_content"] = text  # type: ignore

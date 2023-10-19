@@ -41,8 +41,32 @@ class Openai(BaseModel):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
 
+
+class AiproxyClaude(BaseModel):
+    enable: bool = True
+    priority: int = 90
+    api_key: str
+    model: str = "claude-instant-1"
+    api_base: str = Field(default="https://api.aiproxy.io/")
+
+    @field_validator("api_key", mode="after")
+    def check_required_fields(cls, value, values):
+        if values.data.get("enable") is False:
+            return value
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+    @field_validator("model", mode="after")
+    def check_model(cls, value, values):
+        models = ["claude-instant-1", "claude-2"]
+        if value not in models:
+            raise ValueError(f"配置文件中{cls}字段为{value}，请检查配置文件，目前支持的模型有{models}")
+        return value
+
 class LLMs(BaseModel):
     openai: Openai
+    aiproxy_claude: AiproxyClaude
 
 
 class OpenaiWhisper(BaseModel):

@@ -65,7 +65,6 @@ class BaseChain:
         self.temp_dir = self.config.storage_settings.temp_dir
         self.api_key = self.config.LLMs.openai.api_key
         self.api_base = self.config.LLMs.openai.api_base
-        self.model = self.config.LLMs.openai.model
 
     def _get_queues(self):
         """从队列管理器获取队列"""

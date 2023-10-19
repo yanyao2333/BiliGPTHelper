@@ -17,16 +17,14 @@ class Openai(LLMBase):
         self.openai.api_base = self.config.LLMs.openai.api_base
         self.openai.api_key = self.config.LLMs.openai.api_key
 
-    def _sync_completion(
-        self, prompt, model="gpt-3.5-turbo", **kwargs
-    ) -> Tuple[str, int] | None:
+    def _sync_completion(self, prompt, **kwargs) -> Tuple[str, int] | None:
         """调用openai的Completion API
-        :param model: 模型名称
         :param prompt: 输入的文本（请确保格式化为openai的prompt格式）
         :param kwargs: 其他参数
         :return: 返回生成的文本和token总数 或 None
         """
         try:
+            model = self.config.LLMs.openai.model
             resp = self.openai.ChatCompletion.create(
                 model=model, messages=prompt, **kwargs
             )
@@ -50,8 +48,6 @@ class Openai(LLMBase):
         :return: 返回生成的文本和token总数 或 None
         """
         loop = asyncio.get_event_loop()
-        bound_func = partial(
-            self._sync_completion, prompt, self.config.LLMs.openai.model, **kwargs
-        )
+        bound_func = partial(self._sync_completion, prompt, **kwargs)
         res = await loop.run_in_executor(None, bound_func)
         return res
