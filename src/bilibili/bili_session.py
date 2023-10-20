@@ -30,7 +30,7 @@ class BiliSession:
         """快速发送私信"""
         await session.send_msg(
             credential,
-            at_items["item"]["private_msg_event"]["sender_uid"],
+            at_items["item"]["private_msg_event"]["text_event"]["sender_uid"],
             "1",
             msg,
         )
@@ -65,7 +65,7 @@ class BiliSession:
                 for msg in msg_list:
                     await session.send_msg(
                         self.credential,
-                        data["item"]["private_msg_event"]["sender_uid"],
+                        data["item"]["private_msg_event"]["text_event"]["sender_uid"],
                         "1",
                         msg,
                     )

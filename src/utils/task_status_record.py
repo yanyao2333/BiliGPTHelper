@@ -60,16 +60,26 @@ class TaskStatusRecorder:
 
     def create_record(
         self,
-        data: AtItems,
+        item: AtItems,
         stage: TaskProcessStage,
         event: TaskProcessEvent,
         gmt_create: int,
     ):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
         _uuid = str(uuid.uuid4())
+        if isinstance(
+                item.get("item")
+                        .get("private_msg_event", {"video_event": {"content": "None"}})
+                        .get("video_event", {})
+                        .get("content", None),
+                Video,
+        ):
+            item["item"]["private_msg_event"]["video_event"]["content"] = item["item"][
+                "private_msg_event"
+            ]["video_event"]["content"].get_bvid()
         record: TaskStatus = {
             "stage": stage.value,
-            "data": data,
+            "data": item,
             "event": event.value,
             "gmt_create": gmt_create,
         }
@@ -110,14 +120,15 @@ class TaskStatusRecorder:
             item["item"]["stage"] = TaskProcessStage.IN_QUEUE.value
             item["item"]["event"] = event.value
             if isinstance(
-                item["item"]
-                .get("private_msg_event", {"content": None})
-                .get("content", None),
-                Video,
+                    item.get("item")
+                            .get("private_msg_event", {"video_event": {"content": "None"}})
+                            .get("video_event", {})
+                            .get("content", None),
+                    Video,
             ):
-                item["item"]["private_msg_event"]["content"] = item["item"][
+                item["item"]["private_msg_event"]["video_event"]["content"] = item["item"][
                     "private_msg_event"
-                ]["content"].get_bvid()
+                ]["video_event"]["content"].get_bvid()
             queue_list.append(item)
         self.queue[queue_name] = queue_list
         self.save()

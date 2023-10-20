@@ -49,7 +49,7 @@ def run_statistic(output_dir, data):
         if user_data:
             user_ids.append(user_data.get("mid", "未知"))
         elif private_msg_event:
-            user_ids.append(private_msg_event.get("sender_uid", "未知"))
+            user_ids.append(private_msg_event.get("text_event", {}).get("sender_uid", "未知"))
 
         if private_msg_event:
             request_types.append("私信请求")

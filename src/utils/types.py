@@ -54,6 +54,13 @@ class PrivateMsg(TypedDict):
     timestamp: int
     content: Union[str, int, Picture, Video]
 
+class PrivateMsgSession(TypedDict):
+    """储存单个用户的私信会话信息"""
+
+    status: str  # 状态
+    text_event: PrivateMsg  # 文本事件
+    video_event: PrivateMsg  # 视频事件
+
 
 class AiResponse(TypedDict):
     """AI回复"""
@@ -100,7 +107,7 @@ class AtItem(TypedDict):
     at_details: List[dict]  # at的人的信息，常规的个人信息dict
     ai_response: NotRequired[AiResponse | str]  # AI回复的内容，需要等到处理完才能获取到dict，否则为还没处理的str
     is_private_msg: NotRequired[bool]  # 是否为私信
-    private_msg_event: NotRequired[PrivateMsg]  # 私信事件
+    private_msg_event: NotRequired[PrivateMsgSession]  # 单用户私信会话信息
     whisper_subtitle: NotRequired[str]  # whisper字幕
     stage: NotRequired[TaskProcessStage]  # 视频处理阶段
     event: NotRequired[TaskProcessEvent]  # 视频处理事件

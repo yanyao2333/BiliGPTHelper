@@ -307,14 +307,15 @@ class BaseChain:
         """创建一条任务记录，返回uuid"""
         if isinstance(
             at_items.get("item")
-            .get("private_msg_event", {"content": None})
+            .get("private_msg_event", {"video_event": {"content": "None"}})
+            .get("video_event", {})
             .get("content", None),
             Video,
         ):
             temp = at_items
-            temp["item"]["private_msg_event"]["content"] = temp["item"][
+            temp["item"]["private_msg_event"]["video_event"]["content"] = temp["item"][
                 "private_msg_event"
-            ]["content"].get_bvid()
+            ]["video_event"]["content"].get_bvid()
         else:
             temp = at_items
         _item_uuid = self.task_status_recorder.create_record(

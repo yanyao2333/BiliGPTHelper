@@ -106,9 +106,9 @@ class Listen:
         # self.sched.start()
         _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
 
-    def build_private_msg_to_at_items(self, msg: PrivateMsg) -> AtItems:
+    def build_private_msg_to_at_items(self, msg: PrivateMsgSession) -> AtItems:
         event = deepcopy(msg)
-        video: Video = event["content"]
+        video: Video = event["video_event"]["content"]
         uri = "https://bilibili.com/video/" + video.get_bvid()
         new_items: AtItems = {
             "at_time": int(time.time()),
@@ -116,7 +116,7 @@ class Listen:
             "user": {},
             "item": {
                 "type": "private_msg",
-                "source_content": "",  # 这里需要填写文字私信内容
+                "source_content": event["text_event"]["content"],
                 "at_time": int(time.time()),
                 "uri": uri,
                 "private_msg_event": event,
@@ -135,50 +135,80 @@ class Listen:
         return new_items
 
     async def handle_video(self, user_id, event):
-        _session = self.user_sessions.get(user_id, {"status": "idle", "event": None})
+        _session: PrivateMsgSession = self.user_sessions.get(
+            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
+        )
         match _session["status"]:
             case "idle" | "waiting_for_keyword":
                 _session["status"] = "waiting_for_keyword"
-                _session["event"] = event
+                _session["video_event"] = event
 
             case "waiting_for_video":
-                at_items = self.build_private_msg_to_at_items(event)
-                at_items["item"]["source_content"] = _session["event"]["content"]  # type: ignore
+                _session["video_event"] = event
+                at_items = self.build_private_msg_to_at_items(_session)
+                await self.dispatch_task(at_items)
                 _session["status"] = "idle"
-                _session["event"] = None
-
+                _session["text_event"] = {}
+                _session["video_event"] = {}
             case _:
                 pass
         self.user_sessions[user_id] = _session
 
-    async def handle_text(self, user_id, text):
-        _session = self.user_sessions.get(user_id, {"status": "idle", "event": None})
+    async def handle_text(self, user_id, event):
+        _session: PrivateMsgSession = self.user_sessions.get(
+            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
+        )
+
+        match "BV" in event["content"]:
+            case True:
+                _LOGGER.debug(f"检测到消息中包含BV号，开始解析")
+                try:
+                    p1, p2 = event["content"].split(" ")  # 简单分离一下关键词与链接
+                except Exception as e:
+                    _LOGGER.error(f"分离关键词与链接失败：{e}，返回")
+                    return
+
+                if "BV" in p1:
+                    bvid = p1
+                    keyword = p2
+                else:
+                    bvid = p2
+                    keyword = p1
+                video = Video(bvid)
+                if (
+                    _session["status"] == "waiting_for_keyword"
+                    or _session["status"] == "idle"
+                    or _session["status"] == "waiting_for_video"
+                ):
+                    _session["video_event"] = deepcopy(event)
+                    _session["video_event"]["content"] = video
+                    _session["text_event"] = deepcopy(event)
+                    _session["text_event"]["content"] = keyword
+                    at_items = self.build_private_msg_to_at_items(_session)
+                    await self.dispatch_task(at_items)
+                    _session["status"] = "idle"
+                    _session["text_event"] = {}
+                    _session["video_event"] = {}
+                self.user_sessions[user_id] = _session
+                return
+
         match _session["status"]:
             case "waiting_for_keyword":
-                at_items = self.build_private_msg_to_at_items(_session["event"])  # type: ignore
-                at_items["item"]["source_content"] = text  # 将文本消息填入at内容
+                _session["text_event"] = event
+                at_items = self.build_private_msg_to_at_items(_session)
+                # at_items = self.build_private_msg_to_at_items(_session["event"])  # type: ignore
+                # at_items["item"]["source_content"] = text  # 将文本消息填入at内容
                 await self.dispatch_task(at_items)
                 _session["status"] = "idle"
-                _session["event"] = None
+                _session["text_event"] = {}
+                _session["video_event"] = {}
 
             case "idle":
-                _session["event"]["text_content"] = text  # type: ignore
-                _session["status"] = "waiting_for_video"  # FIXME 这里还是有问题 但暂时先放过他 不影响使用
-                """
-                错误日志：
-                Task exception was never retrieved
-                future: <Task finished name='Task-16' coro=<Listen.on_receive() done, defined at D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py:175> exception=TypeError("'NoneType' object does not support item assignment")>
-                Traceback (most recent call last):
-                    File "D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py", line 182, in on_receive
-                        await self.handle_text(data["sender_uid"], data["content"])
-                    File "D:\PycharmProjects\BiliGPTHelper\src\listener\bili_listen.py", line 165, in handle_text
-                        _session["event"]["text_content"] = text  # type: ignore
-                    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
-                TypeError: 'NoneType' object does not support item assignment
-                """
+                _session["text_event"] = event
+                _session["status"] = "waiting_for_video"
 
             case "waiting_for_video":
-                _session["event"]["text_content"] = text  # type: ignore
+                _session["text_event"] = event
 
             case _:
                 pass
@@ -191,7 +221,7 @@ class Listen:
         if data["msg_type"] == 7:
             await self.handle_video(data["sender_uid"], data)
         elif data["msg_type"] == 1:
-            await self.handle_text(data["sender_uid"], data["content"])
+            await self.handle_text(data["sender_uid"], data)
         else:
             _LOGGER.debug(f"未知的消息类型{data['msg_type']}")
 
