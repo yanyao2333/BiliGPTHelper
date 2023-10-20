@@ -83,7 +83,8 @@ class LLMBase:
                 if stemplate
                 else build_messages(utemplate, user_keyword=user_keyword)
             )
-            _LOGGER.info(f"使用模板成功，生成的prompt为：{prompt}")
+            _LOGGER.info(f"使用模板成功")
+            _LOGGER.debug(f"生成的prompt为：{prompt}")
             return prompt
         except Exception as e:
             _LOGGER.error(f"使用模板失败：{e}")

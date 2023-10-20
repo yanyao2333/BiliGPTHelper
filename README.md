@@ -3,6 +3,7 @@
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![wakatime](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82.svg)](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82)
 
 ### 🌟 介绍
 
@@ -86,7 +87,16 @@ pip install -r requirements.txt
 python main.py
 ```
 
-4. 试着拿别的号at or 发私信给他“总结一下”，看看效果吧
+#### 触发方式
+
+##### 私信
+
+1. 手机端视频页分享视频并附带一条文字消息，例如"总结一下"，即可触发总结
+2. 发送"[关键字][空格]视频bv号"（例如"总结一下 BVxxxxxxx"）
+
+##### at
+
+在评论区发送关键字即可
 
 
 ### 💸 这玩意烧钱吗

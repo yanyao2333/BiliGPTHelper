@@ -4,7 +4,9 @@ from typing import Tuple
 import anthropic
 
 from src.llm.llm_base import LLMBase
+from src.llm.templates import Templates
 from src.utils.logging import LOGGER
+from src.utils.prompt_utils import parse_prompt
 
 _LOGGER = LOGGER.bind(name="aiproxy_claude")
 
@@ -27,10 +29,6 @@ class AiproxyClaude(LLMBase):
                 api_key=self.config.LLMs.aiproxy_claude.api_key,
                 base_url=self.config.LLMs.aiproxy_claude.api_base,
             )
-            system = prompt[0]["content"]
-            user = prompt[1]["content"]
-            prompt = f"I will give you 'rules' 'content' two tags. You need to follow the rules!  <content>{system}</content> <rules>{user}</rules>"
-            prompt = f"{anthropic.HUMAN_PROMPT} {prompt}{anthropic.AI_PROMPT}"
             resp = await claude.completions.create(
                 prompt=prompt,
                 max_tokens_to_sample=1000,
@@ -48,4 +46,39 @@ class AiproxyClaude(LLMBase):
         except Exception as e:
             _LOGGER.error(f"调用claude的Completion API失败：{e}")
             traceback.print_tb(e.__traceback__)
+            return None
+
+    @staticmethod
+    def use_template(
+        user_template_name: Templates,
+        system_template_name: Templates = None,
+        user_keyword="user",
+        system_keyword="system",
+        **kwargs,
+    ) -> str | None:
+        try:
+            template_user = user_template_name.value
+            template_system = (
+                system_template_name.value if system_template_name else None
+            )
+            utemplate = parse_prompt(template_user, **kwargs)
+            stemplate = (
+                parse_prompt(template_system, **kwargs) if template_system else None
+            )
+            prompt = f"I will give you 'rules' 'content' two tags. You need to follow the rules!  <content>{utemplate}</content> <rules>{stemplate}</rules>"
+            prompt = (
+                anthropic.HUMAN_PROMPT
+                + " "
+                + prompt
+                + " "
+                + anthropic.AI_PROMPT
+                + " "
+                + '{"'
+            )
+            _LOGGER.info(f"使用模板成功")
+            _LOGGER.debug(f"生成的prompt为：{prompt}")
+            return prompt
+        except Exception as e:
+            _LOGGER.error(f"使用模板失败：{e}")
+            traceback.print_exc()
             return None
