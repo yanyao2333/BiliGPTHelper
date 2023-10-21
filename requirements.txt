@@ -12,3 +12,4 @@ injector
 pydantic
 anthropic
 ruamel.yaml
+pydub

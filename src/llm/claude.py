@@ -39,6 +39,9 @@ class AiproxyClaude(LLMBase):
             _LOGGER.info(
                 f"调用claude的Completion API成功，本次调用中，prompt+response的长度为{resp.model_dump()['usage']['total_tokens']}"
             )
+            if not resp.completion.startswith('{"'):
+                # claude好像是直接从assistant所给内容之后续写的，给它加上缺失的前缀
+                resp.completion = '{"' + resp.completion
             return (
                 resp.completion,
                 resp.model_dump()["usage"]["total_tokens"],

@@ -238,6 +238,9 @@ class BaseChain:
             bvid = await video.bvid
             audio_path = f"{self.temp_dir}/{bvid} temp.mp3"
             self.asr = self.asr_router.get_one()  # 重新获取一个，防止因为错误而被禁用，但调用端没及时更新
+            if self.asr is None:
+                _LOGGER.warning(f"没有可用的asr，跳过处理")
+                self._set_err_end(_uuid, "没有可用的asr，跳过处理")
             text = await self.asr.transcribe(audio_path)
             if text is None:
                 _LOGGER.warning(f"音频转写失败，报告并重试")
