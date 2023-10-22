@@ -36,7 +36,6 @@ class LocalWhisper(ASRBase):
             download_root=self.config.ASRs.local_whisper.model_dir,
         )
         _LOGGER.info(f"加载whisper模型成功")
-        return None
 
     async def after_process(self, text, **kwargs) -> str:
         llm = self.llm_router.get_one()
@@ -79,8 +78,7 @@ class LocalWhisper(ASRBase):
                 text = await self.after_process(result)
                 _LOGGER.debug(f"后处理完成，用时{time.perf_counter()-bt}s")
                 return text
-            else:
-                return result
+            return result
         except Exception as e:
             _LOGGER.error(f"后处理失败，错误信息为{e}")
             traceback.print_exc()

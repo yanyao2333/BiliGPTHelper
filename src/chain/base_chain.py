@@ -102,9 +102,9 @@ class BaseChain:
         )
 
     @abc.abstractmethod
-    def _precheck(self, at_item: AtItems, _uuid: str) -> bool:
+    async def _precheck(self, at_items: AtItems, _uuid: str) -> bool:
         """检查是否符合调用条件
-        :param at_item: AtItem
+        :param at_items: AtItem
         :param _uuid: 这项任务的uuid
 
         如不符合，请务必调用self._set_err_end()方法后返回False
@@ -301,10 +301,9 @@ class BaseChain:
             temp["item"]["whisper_subtitle"] = text
             self.task_status_recorder.update_record(_uuid, data=temp, use_whisper=True)
             return text
-        else:
-            _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
-            text = await self._get_subtitle_from_bilibili(video, _uuid)
-            return text
+        _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
+        text = await self._get_subtitle_from_bilibili(video, _uuid)
+        return text
 
     def _create_record(self, at_items: AtItems) -> str:
         """创建一条任务记录，返回uuid"""

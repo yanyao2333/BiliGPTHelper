@@ -48,7 +48,7 @@ class LLMRouter:
         """加载一个ASR子类"""
         try:
             _asr = attr(self.config)
-            self.__setattr__(_asr.alias, _asr)
+            setattr(_asr.alias, _asr)
             _LOGGER.info(f"正在加载 {_asr.alias}")
             _config = self.config.model_dump()["LLMs"][_asr.alias]
             priority = _config["priority"]

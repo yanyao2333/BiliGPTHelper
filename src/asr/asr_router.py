@@ -50,7 +50,7 @@ class ASRouter:
         """加载一个ASR子类"""
         try:
             _asr = attr(self.config, self.llm_router)
-            self.__setattr__(_asr.alias, _asr)
+            setattr(_asr.alias, _asr)
             _LOGGER.info(f"正在加载 {_asr.alias}")
             _config = self.config.model_dump()["ASRs"][_asr.alias]
             priority = _config["priority"]
@@ -115,8 +115,7 @@ class ASRouter:
                         asr["obj"].prepare()
                         asr["prepared"] = True
                     return asr["obj"]
-        else:
-            _LOGGER.error(f"没有可用的ASR子类")
+        LOGGER.error("没有可用的ASR子类")
         return None
 
     def report_error(self, name: str):

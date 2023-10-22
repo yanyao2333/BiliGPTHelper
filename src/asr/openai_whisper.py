@@ -88,13 +88,12 @@ class OpenaiWhisper(ASRBase):
 
         if isinstance(response, dict) and "text" in response:
             return response["text"]
-        else:
-            try:
-                response = json.loads(response)
-                return response["text"]
-            except Exception as e:
-                _LOGGER.error(f"返回内容不是字典或者没有text字段，返回None")
-                return None
+        try:
+            response = json.loads(response)
+            return response["text"]
+        except Exception:
+            _LOGGER.error(f"返回内容不是字典或者没有text字段，返回None")
+            return None
 
     async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
         loop = asyncio.get_event_loop()
@@ -115,8 +114,7 @@ class OpenaiWhisper(ASRBase):
         if None in result:
             _LOGGER.error(f"识别失败，返回None")  # TODO 单独重试失败的切片
             return None
-        else:
-            result = "".join(result)
+        result = "".join(result)
         # 清除临时文件
         for file in export_file_list:
             os.remove(f"{temp}/{file}")
@@ -127,8 +125,7 @@ class OpenaiWhisper(ASRBase):
                 text = await self.after_process(result)
                 _LOGGER.debug(f"后处理完成，用时{time.perf_counter()-bt}s")
                 return text
-            else:
-                return result
+            return result
         except Exception as e:
             _LOGGER.error(f"后处理失败，错误信息为{e}")
             traceback.print_exc()

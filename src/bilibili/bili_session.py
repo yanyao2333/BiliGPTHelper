@@ -57,7 +57,7 @@ class BiliSession:
             try:
                 data: AtItems = await self.private_queue.get()
                 _LOGGER.debug(f"获取到新的私信任务，开始处理")
-                video_obj, _type = await BiliVideo(
+                _, _type = await BiliVideo(
                     credential=self.credential, url=data["item"]["uri"]
                 ).get_video_obj()
                 video_obj: video.Video

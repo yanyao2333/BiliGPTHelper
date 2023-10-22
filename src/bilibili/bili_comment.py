@@ -97,6 +97,7 @@ class BiliComment:
         _LOGGER.debug(f"正在拼接评论")
         comment_str = ""
         for _comment in selected_comment_list:
+            _comment: dict
             comment_str += (
                 f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
             )
@@ -152,15 +153,13 @@ class BiliComment:
                         _LOGGER.debug(f"发送评论成功，休息30秒")
                         await asyncio.sleep(30)
                         break  # 评论成功，退出当前任务的重试循环
-                    else:
-                        _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
-                        risk_control_count += 1
-                        if risk_control_count >= 3:
-                            _LOGGER.warning(f"连续3次风控，跳过当前任务处理下一个")
-                            data = None
-                            break
-                        else:
-                            raise RiskControlFindError
+                    _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
+                    risk_control_count += 1
+                    if risk_control_count >= 3:
+                        _LOGGER.warning(f"连续3次风控，跳过当前任务处理下一个")
+                        data = None
+                        break
+                    raise RiskControlFindError
                 except RiskControlFindError:
                     _LOGGER.warning(f"遇到风控，等待60秒后重试当前任务")
                     await asyncio.sleep(60)
