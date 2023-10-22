@@ -48,3 +48,4 @@ jobs:
           requirements-path: 'requirements.txt'
           infer-types: true
           include-default-sapp-filters: true
+          use-nightly: true
