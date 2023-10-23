@@ -1,6 +1,7 @@
 <h2 align="center">✨Bili GPT Helper✨</h2>
 <h5 align="center">基于LLM的B站人形自走bot</h5>
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/5f4c930480804d6e80218f879c7838a6)](https://app.codacy.com/gh/yanyao2333/BiliGPTHelper?utm_source=github.com&utm_medium=referral&utm_content=yanyao2333/BiliGPTHelper&utm_campaign=Badge_Grade)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![wakatime](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82.svg)](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82)
