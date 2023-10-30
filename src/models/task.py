@@ -151,7 +151,7 @@ class BiliAtSpecialAttributes(BaseModel):
 class BiliGPTTask(BaseModel):
     """单任务全生命周期的数据模型 用于替代其他所有的已有类型"""
 
-    source_type: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^(bili_reply|bili_private|api)$")]  # type: ignore # 设置task的获取来源
+    source_type: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^(bili_comment|bili_private|api)$")]  # type: ignore # 设置task的获取来源
     raw_task_data: dict  # 原始的task数据，包含所有信息
     sender_id: str  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
     video_title: str  # 视频标题

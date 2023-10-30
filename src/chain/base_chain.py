@@ -8,7 +8,6 @@ from typing import Optional
 import ffmpeg
 import httpx
 from bilibili_api import HEADERS
-from bilibili_api.video import Video
 from injector import inject
 
 from src.asr.asr_router import ASRouter
@@ -20,7 +19,7 @@ from src.models.config import Config
 from src.models.task import (
     ProcessStages,
     EndReasons,
-    AtItems,
+    BiliGPTTask,
     Chains,
 )
 from src.utils.cache import Cache
@@ -102,9 +101,9 @@ class BaseChain:
         )
 
     @abc.abstractmethod
-    async def _precheck(self, at_items: AtItems, _uuid: str) -> bool:
+    async def _precheck(self, task: BiliGPTTask, _uuid: str) -> bool:
         """检查是否符合调用条件
-        :param at_items: AtItem
+        :param task: AtItem
         :param _uuid: 这项任务的uuid
 
         如不符合，请务必调用self._set_err_end()方法后返回False
@@ -112,13 +111,13 @@ class BaseChain:
         pass
 
     @staticmethod
-    def cut_items_leaves(items: AtItems):
+    def cut_items_leaves(task: BiliGPTTask) -> BiliGPTTask:
         """精简at items数据，只保存ai_response，准备存入cache"""
-        return items["item"]["ai_response"]
+        return task
 
     async def finish(
         self,
-        at_items: AtItems,
+        task: BiliGPTTask,
         resp: dict,
         bvid: str,
         _uuid: str,
@@ -128,21 +127,18 @@ class BaseChain:
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
         :param is_retry:
         :param resp: ai的回复
-        :param at_items:
+        :param task:
         :param _uuid: 任务uuid
         :param bvid: 视频bvid
         :return:
         """
         _LOGGER = self._LOGGER
-        reply_data = copy.deepcopy(at_items)
+        reply_data = copy.deepcopy(task)
         reply_data["item"]["ai_response"] = resp
-        if (
-            at_items["item"]["type"] == "private_msg"
-            and at_items["item"]["business_id"] == 114
-        ):
+        if task.source_type == "bili_private":
             _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
             await self.private_queue.put(reply_data)
-        else:
+        elif task.source_type == "bili_comment":
             _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
@@ -154,29 +150,27 @@ class BaseChain:
         return True
 
     async def _is_cached_video(
-        self, at_items: AtItems, _uuid: str, video_info: dict
+        self, task: BiliGPTTask, _uuid: str, video_info: dict
     ) -> bool:
         """检查是否是缓存的视频
         如果是缓存的视频，直接从缓存中获取结果并发送
         """
         if self.cache.get_cache(key=video_info["bvid"]):
             LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-            if (
-                at_items["item"]["type"] == "private_msg"
-                and at_items["item"]["business_id"] == 114
-            ):
-                cache = self.cache.get_cache(key=video_info["bvid"])
-                at_items["item"]["ai_response"] = cache
-                await self.finish(at_items, cache, video_info["bvid"], _uuid)
-            else:
-                cache = self.cache.get_cache(key=video_info["bvid"])
-                at_items["item"]["ai_response"] = cache
-                await self.finish(at_items, cache, video_info["bvid"], _uuid)
+            match task.source_type:
+                case "bili_private":
+                    cache = self.cache.get_cache(key=video_info["bvid"])
+                    task.process_result = cache
+                    await self.finish(task, cache, video_info["bvid"], _uuid)
+                case "bili_comment":
+                    cache = self.cache.get_cache(key=video_info["bvid"])
+                    task.process_result = cache
+                    await self.finish(task, cache, video_info["bvid"], _uuid)
             return True
         return False
 
     async def _get_video_info(
-        self, at_items: AtItems, _uuid: str
+        self, task: BiliGPTTask, _uuid: str
     ) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
         """获取视频的一些信息
 
@@ -190,7 +184,7 @@ class BaseChain:
         """
         _LOGGER = self._LOGGER
         _LOGGER.info(f"开始处理该视频音频流和字幕")
-        video = BiliVideo(self.credential, url=at_items["item"]["uri"])
+        video = BiliVideo(self.credential, url=task.video_url)
         _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
         video_info = await video.get_video_info
         _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
@@ -285,7 +279,7 @@ class BaseChain:
         return text
 
     async def _smart_get_subtitle(
-        self, video: BiliVideo, _uuid: str, format_video_name: str, at_items: AtItems
+        self, video: BiliVideo, _uuid: str, format_video_name: str, task: BiliGPTTask
     ) -> Optional[str]:
         """根据用户配置智能获取字幕"""
         _LOGGER = self._LOGGER
@@ -297,31 +291,17 @@ class BaseChain:
                 return None
             _LOGGER.warning(f"视频{format_video_name}没有字幕，开始使用asr转写，这可能会导致字幕质量下降")
             text = await self._get_subtitle_from_asr(video, _uuid)
-            temp = at_items
-            temp["item"]["whisper_subtitle"] = text
-            self.task_status_recorder.update_record(_uuid, data=temp, use_whisper=True)
+            task.subtitle = text
+            self.task_status_recorder.update_record(_uuid, data=task, use_whisper=True)
             return text
         _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
         text = await self._get_subtitle_from_bilibili(video, _uuid)
         return text
 
-    def _create_record(self, at_items: AtItems) -> str:
+    def _create_record(self, task: BiliGPTTask) -> str:
         """创建一条任务记录，返回uuid"""
-        if isinstance(
-            at_items.get("item")
-            .get("private_msg_event", {"video_event": {"content": "None"}})
-            .get("video_event", {})
-            .get("content", None),
-            Video,
-        ):
-            temp = at_items
-            temp["item"]["private_msg_event"]["video_event"]["content"] = temp["item"][
-                "private_msg_event"
-            ]["video_event"]["content"].get_bvid()
-        else:
-            temp = at_items
         _item_uuid = self.task_status_recorder.create_record(
-            temp,
+            task,
             ProcessStages.PREPROCESS,
             Chains.SUMMARIZE,
             int(time.time()),

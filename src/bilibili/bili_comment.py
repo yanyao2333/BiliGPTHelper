@@ -9,7 +9,7 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.models.task import AtItems, SummarizeAiResponse
+from src.models.task import SummarizeAiResponse, BiliGPTTask
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
@@ -112,7 +112,7 @@ class BiliComment:
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        return f"【视频摘要】{response['summary']}\n\n【咱对本次生成内容的自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}"
+        return f"【视频摘要】{response['summary']}\n\n【自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}"
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -129,18 +129,18 @@ class BiliComment:
                     if data is not None:
                         _LOGGER.debug(f"继续处理上一次失败的评论任务")
                     if data is None:
-                        data: Optional[AtItems] = await self.comment_queue.get()
+                        data: Optional[BiliGPTTask] = await self.comment_queue.get()
                         _LOGGER.debug(f"获取到新的评论任务，开始处理")
                     video_obj, _type = await BiliVideo(
-                        credential=self.credential, url=data["item"]["uri"]
+                        credential=self.credential, url=data.video_url
                     ).get_video_obj()
                     video_obj: video.Video
                     aid = video_obj.get_aid()
                     if str(aid).startswith("av"):
                         aid = aid[2:]
                     oid = int(aid)
-                    root = data["item"]["source_id"]
-                    text = BiliComment.build_reply_content(data["item"]["ai_response"])
+                    root = data.source_other_content.source_id
+                    text = BiliComment.build_reply_content(data.process_result)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,

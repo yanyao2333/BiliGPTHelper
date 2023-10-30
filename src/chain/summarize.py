@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import traceback
 
 import tenacity
@@ -7,7 +8,7 @@ import tenacity
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
 from src.llm.templates import Templates
-from src.models.task import *
+from src.models.task import BiliGPTTask, ProcessStages, Chains
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
@@ -17,20 +18,18 @@ _LOGGER = LOGGER.bind(name="summarize-chain")
 class SummarizeChain(BaseChain):
     """摘要处理链"""
 
-    async def _precheck(self, at_items: AtItems, _uuid: str) -> bool:
+    async def _precheck(self, task: BiliGPTTask, _uuid: str) -> bool:
         """检查是否满足处理条件"""
-        if (
-            at_items["item"]["type"] == "private_msg"
-            and at_items["item"]["business_id"] == 114
-        ):
-            _LOGGER.debug(f"该消息是私信消息，继续处理")
-            await BiliSession.quick_send(self.credential, at_items, "视频已开始处理，你先别急")
-            return True
-        if at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
+        match task.source_type:
+            case "bili_private":
+                _LOGGER.debug(f"该消息是私信消息，继续处理")
+                await BiliSession.quick_send(self.credential, task, "视频已开始处理，你先别急")
+                return True
+        if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
             _LOGGER.warning(f"该消息目前并不支持，跳过处理")
             self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
             return False
-        if at_items["item"]["root_id"] != 0 or at_items["item"]["target_id"] != 0:
+        if task["item"]["root_id"] != 0 or task["item"]["target_id"] != 0:
             _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
             self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
             return False
