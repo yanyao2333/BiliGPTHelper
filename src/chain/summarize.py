@@ -1,6 +1,5 @@
 import asyncio
 import json
-import time
 import traceback
 
 import tenacity
@@ -8,9 +7,9 @@ import tenacity
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
 from src.llm.templates import Templates
+from src.models.task import *
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
-from src.utils.types import *
 
 _LOGGER = LOGGER.bind(name="summarize-chain")
 
@@ -27,9 +26,7 @@ class SummarizeChain(BaseChain):
             _LOGGER.debug(f"该消息是私信消息，继续处理")
             await BiliSession.quick_send(self.credential, at_items, "视频已开始处理，你先别急")
             return True
-        elif (
-            at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1
-        ):
+        if at_items["item"]["type"] != "reply" or at_items["item"]["business_id"] != 1:
             _LOGGER.warning(f"该消息目前并不支持，跳过处理")
             self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
             return False
@@ -42,25 +39,25 @@ class SummarizeChain(BaseChain):
     async def _on_start(self):
         """在启动处理链时先处理一下之前没有处理完的视频"""
         _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
-        oncomplete_task = []
-        oncomplete_task += self.task_status_recorder.get_record_by_stage(
-            TaskProcessStage.PREPROCESS, TaskProcessEvent.SUMMARIZE
+        uncomplete_task = []
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            ProcessStages.PREPROCESS, Chains.SUMMARIZE
         )
-        oncomplete_task += self.task_status_recorder.get_record_by_stage(
-            TaskProcessStage.WAITING_LLM_RESPONSE, TaskProcessEvent.SUMMARIZE
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            ProcessStages.WAITING_LLM_RESPONSE, Chains.SUMMARIZE
         )
-        oncomplete_task += self.task_status_recorder.get_record_by_stage(
-            TaskProcessStage.WAITING_SEND, TaskProcessEvent.SUMMARIZE
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            ProcessStages.WAITING_SEND, Chains.SUMMARIZE
         )
-        oncomplete_task += self.task_status_recorder.get_record_by_stage(
-            TaskProcessStage.WAITING_PUSH_TO_CACHE, TaskProcessEvent.SUMMARIZE
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            ProcessStages.WAITING_PUSH_TO_CACHE, Chains.SUMMARIZE
         )
-        oncomplete_task += self.task_status_recorder.get_record_by_stage(
-            TaskProcessStage.WAITING_RETRY, TaskProcessEvent.SUMMARIZE
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            ProcessStages.WAITING_RETRY, Chains.SUMMARIZE
         )
-        for task in oncomplete_task:
+        for task in uncomplete_task:
             self.summarize_queue.put_nowait(task["data"])
-        _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(oncomplete_task)}个")
+        _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
         self.task_status_recorder.load_queue(self.summarize_queue, "summarize")
         _LOGGER.info(f"正在将上次在队列中的视频加入队列")
         self.task_status_recorder.delete_queue("summarize")
@@ -105,8 +102,8 @@ class SummarizeChain(BaseChain):
                     video_comments,
                 ) = resp
                 if (
-                    data["stage"] == TaskProcessStage.PREPROCESS.value
-                    or data["stage"] == TaskProcessStage.WAITING_LLM_RESPONSE.value
+                    data["stage"] == ProcessStages.PREPROCESS.value
+                    or data["stage"] == ProcessStages.WAITING_LLM_RESPONSE.value
                 ):
                     begin_time = time.perf_counter()
                     if await self._is_cached_video(at_items, _item_uuid, video_info):
@@ -126,7 +123,7 @@ class SummarizeChain(BaseChain):
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
                     self.task_status_recorder.update_record(
-                        _item_uuid, stage=TaskProcessStage.WAITING_LLM_RESPONSE
+                        _item_uuid, stage=ProcessStages.WAITING_LLM_RESPONSE
                     )
                     llm = self.llm_router.get_one()
                     if llm is None:
@@ -157,13 +154,13 @@ class SummarizeChain(BaseChain):
                     _LOGGER.debug(f"调用llm成功，开始处理结果")
                     at_items["item"]["ai_response"] = answer
                     self.task_status_recorder.update_record(
-                        _item_uuid, stage=TaskProcessStage.WAITING_SEND, data=at_items
+                        _item_uuid, stage=ProcessStages.WAITING_SEND, data=at_items
                     )
 
                 data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
                 if (
-                    data["stage"] == TaskProcessStage.WAITING_SEND.value
-                    or data["stage"] == TaskProcessStage.WAITING_RETRY.value
+                    data["stage"] == ProcessStages.WAITING_SEND.value
+                    or data["stage"] == ProcessStages.WAITING_RETRY.value
                 ):
                     begin_time = time.perf_counter()
                     answer = at_items["item"]["ai_response"]
@@ -171,7 +168,7 @@ class SummarizeChain(BaseChain):
                     # 处理结果
                     if answer:
                         try:
-                            if data["stage"] == TaskProcessStage.WAITING_RETRY.value:
+                            if data["stage"] == ProcessStages.WAITING_RETRY.value:
                                 raise Exception("触发重试")
                             if "false" in answer:
                                 answer.replace(
@@ -194,19 +191,18 @@ class SummarizeChain(BaseChain):
                                 # )
                                 self._set_noneed_end(_item_uuid)
                                 continue
-                            else:
-                                _LOGGER.info(
-                                    f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
-                                )
-                                await self.finish(
-                                    at_items, resp, video_info["bvid"], _item_uuid
-                                )
+                            _LOGGER.info(
+                                f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
+                            )
+                            await self.finish(
+                                at_items, resp, video_info["bvid"], _item_uuid
+                            )
 
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                             traceback.print_tb(e.__traceback__)
                             self.task_status_recorder.update_record(
-                                _item_uuid, stage=TaskProcessStage.WAITING_RETRY
+                                _item_uuid, stage=ProcessStages.WAITING_RETRY
                             )
                             await self.retry(
                                 answer,

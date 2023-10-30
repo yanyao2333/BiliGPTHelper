@@ -7,8 +7,8 @@ from typing import Optional
 from src.asr.asr_base import ASRBase
 from src.llm.llm_router import LLMRouter
 from src.llm.templates import Templates
+from src.models.config import Config
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 
 _LOGGER = LOGGER.bind(name="LocalWhisper")
 

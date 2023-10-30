@@ -12,13 +12,12 @@ from src.bilibili.bili_session import BiliSession
 from src.chain.summarize import SummarizeChain
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
+from src.models.config import Config
+from src.models.task import Chains
 from src.utils.logging import LOGGER
-from src.utils.merge_config import *
-from src.utils.models import Config
+from src.utils.merge_config import is_have_diff, merge_config, load_config, save_config
 from src.utils.queue_manager import QueueManager
-from src.utils.statistic import run_statistic
 from src.utils.task_status_record import TaskStatusRecorder
-from src.utils.types import TaskProcessEvent
 
 
 class BiliGPTPipeline:
@@ -128,21 +127,21 @@ class BiliGPTPipeline:
                 # NOTICE: 需要保存其他queue时，需要在这里添加
                 injector.get(TaskStatusRecorder).save_queue(
                     injector.get(QueueManager).get_queue("summarize"),
-                    event=TaskProcessEvent.SUMMARIZE,
+                    event=Chains.SUMMARIZE,
                     queue_name="summarize",
                 )
                 _LOGGER.info("正在关闭所有的处理链")
                 summarize_task.cancel()
                 comment_task.cancel()
                 private_task.cancel()
-                _LOGGER.info("正在生成本次运行的统计报告")
-                statistics_dir = injector.get(Config).model_dump()["storage_settings"][
-                    "statistics_dir"
-                ]
-                run_statistic(
-                    statistics_dir if statistics_dir else "./statistics",
-                    injector.get(TaskStatusRecorder).tasks,
-                )
+                # _LOGGER.info("正在生成本次运行的统计报告")
+                # statistics_dir = injector.get(Config).model_dump()["storage_settings"][
+                #     "statistics_dir"
+                # ]
+                # run_statistic(
+                #     statistics_dir if statistics_dir else "./statistics",
+                #     injector.get(TaskStatusRecorder).tasks,
+                # )
                 break
             await asyncio.sleep(1)
 

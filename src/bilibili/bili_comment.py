@@ -9,9 +9,9 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.models.task import AtItems, SummarizeAiResponse
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
-from src.utils.types import AtItems, AiResponse
 
 _LOGGER = LOGGER.bind(name="bilibili-comment")
 
@@ -105,7 +105,7 @@ class BiliComment:
         return comment_str
 
     @staticmethod
-    def build_reply_content(response: AiResponse) -> str:
+    def build_reply_content(response: SummarizeAiResponse) -> str:
         """
         构建回复内容
 

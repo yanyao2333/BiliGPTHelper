@@ -1,14 +1,14 @@
 import asyncio
 
 import tenacity
-from bilibili_api import session, video
+from bilibili_api import session
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.models.task import AtItems, SummarizeAiResponse
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
-from src.utils.types import AtItems, AiResponse
 
 _LOGGER = LOGGER.bind(name="bilibili-session")
 
@@ -36,7 +36,7 @@ class BiliSession:
         )
 
     @staticmethod
-    def build_reply_content(response: AiResponse) -> list:
+    def build_reply_content(response: SummarizeAiResponse) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
         # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
         msg_list = [
@@ -60,7 +60,6 @@ class BiliSession:
                 _, _type = await BiliVideo(
                     credential=self.credential, url=data["item"]["uri"]
                 ).get_video_obj()
-                video_obj: video.Video
                 msg_list = BiliSession.build_reply_content(data["item"]["ai_response"])
                 for msg in msg_list:
                     await session.send_msg(

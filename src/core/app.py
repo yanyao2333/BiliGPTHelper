@@ -8,9 +8,9 @@ from injector import Module, singleton, provider
 from src.asr.asr_router import ASRouter
 from src.bilibili.bili_credential import BiliCredential
 from src.llm.llm_router import LLMRouter
+from src.models.config import Config
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
 from src.utils.task_status_record import TaskStatusRecorder
 

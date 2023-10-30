@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 from src.llm.llm_router import LLMRouter
-from src.utils.models import Config
+from src.models.config import Config
 
 
 class ASRBase:

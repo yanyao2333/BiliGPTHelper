@@ -5,8 +5,8 @@ import traceback
 from typing import Tuple
 
 from src.llm.templates import Templates
+from src.models.config import Config
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 from src.utils.prompt_utils import parse_prompt, build_messages
 
 _LOGGER = LOGGER.bind(name="llm_base")

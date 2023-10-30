@@ -1,6 +1,5 @@
 """监听bilibili平台的私信、at消息"""
 
-import time
 from copy import deepcopy
 from datetime import datetime
 
@@ -9,10 +8,10 @@ from bilibili_api import session
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
+from src.models.config import Config
+from src.models.task import *
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
-from src.utils.types import *
 
 _LOGGER = LOGGER.bind(name="bilibili-listener")
 
@@ -155,8 +154,13 @@ class Listen:
         self.user_sessions[user_id] = _session
 
     async def handle_text(self, user_id, event):
-        _session: PrivateMsgSession = self.user_sessions.get(
-            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
+        # _session = PrivateMsgSession(self.user_sessions.get(
+        #     user_id, {"status": "idle", "text_event": {}, "video_event": {}}
+        # ))
+        _session = (
+            PrivateMsgSession.model_validate(self.user_sessions[user_id])
+            if self.user_sessions.get(user_id, None)
+            else PrivateMsgSession.model_validate({"status": "idle"})
         )
 
         match "BV" in event["content"]:
@@ -176,12 +180,12 @@ class Listen:
                     keyword = p1
                 video = Video(bvid)
                 if (
-                    _session["status"] == "waiting_for_keyword"
-                    or _session["status"] == "idle"
-                    or _session["status"] == "waiting_for_video"
+                    _session.status == "waiting_for_keyword"
+                    or _session.status == "idle"
+                    or _session.status == "waiting_for_video"
                 ):
-                    _session["video_event"] = deepcopy(event)
-                    _session["video_event"]["content"] = video
+                    _session.video_event = deepcopy(event)
+                    _session.video_event.content = video
                     _session["text_event"] = deepcopy(event)
                     _session["text_event"]["content"] = keyword
                     at_items = self.build_private_msg_to_at_items(_session)

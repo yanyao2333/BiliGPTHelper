@@ -6,8 +6,8 @@ from typing import Optional
 from injector import inject
 
 from src.llm.llm_base import LLMBase
+from src.models.config import Config
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 
 _LOGGER = LOGGER.bind(name="LLM-Router")
 

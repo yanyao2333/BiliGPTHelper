@@ -6,8 +6,8 @@ import uuid
 
 from bilibili_api.video import Video
 
+from src.models.task import TaskStatus, ProcessStages, AtItems, Chains
 from src.utils.logging import LOGGER
-from src.utils.types import TaskStatus, TaskProcessStage, AtItems, TaskProcessEvent
 
 _LOGGER = LOGGER.bind(name="task-status-record")
 
@@ -48,8 +48,8 @@ class TaskStatusRecorder:
 
     def get_record_by_stage(
         self,
-        stage: TaskProcessStage,
-        event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
+        stage: ProcessStages,
+        event: Chains = Chains.SUMMARIZE,
     ):
         """根据stage获取记录"""
         records = []
@@ -61,8 +61,8 @@ class TaskStatusRecorder:
     def create_record(
         self,
         item: AtItems,
-        stage: TaskProcessStage,
-        event: TaskProcessEvent,
+        stage: ProcessStages,
+        event: Chains,
         gmt_create: int,
     ):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
@@ -100,7 +100,7 @@ class TaskStatusRecorder:
                 _value = _value.value
             if key == "stage":
                 record["data"]["item"]["stage"] = _value
-                if _value == TaskProcessStage.END.value:
+                if _value == ProcessStages.END.value:
                     if record["data"]["item"].get("whisper_subtitle", None):
                         del record["data"]["item"]["whisper_subtitle"]  # 避免过多冗余信息
             record[key] = _value
@@ -111,13 +111,13 @@ class TaskStatusRecorder:
         self,
         queue: asyncio.Queue,
         queue_name: str,
-        event: TaskProcessEvent = TaskProcessEvent.SUMMARIZE,
+        event: Chains = Chains.SUMMARIZE,
     ):
         """保存队列"""
         queue_list = []
         while not queue.empty():
             item: AtItems = queue.get_nowait()
-            item["item"]["stage"] = TaskProcessStage.IN_QUEUE.value
+            item["item"]["stage"] = ProcessStages.IN_QUEUE.value
             item["item"]["event"] = event.value
             if isinstance(
                     item.get("item")

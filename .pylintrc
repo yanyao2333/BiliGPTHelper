@@ -438,6 +438,7 @@ disable=raw-checker-failed,
         f-string-without-interpolation, #这不会有多不美观
         import-outside-toplevel, # 很显然，这么做是有原因的
         too-many-arguments, # 我自己做决定
+        invalid-name, # LOGGER不遵循蛇形样式是因为他是常量
 
 
 # Enable the message, report, category or checker with the given id(s). You can

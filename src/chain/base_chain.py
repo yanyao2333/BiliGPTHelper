@@ -16,17 +16,17 @@ from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
 from src.llm.llm_router import LLMRouter
+from src.models.config import Config
+from src.models.task import (
+    ProcessStages,
+    EndReasons,
+    AtItems,
+    Chains,
+)
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
-from src.utils.models import Config
 from src.utils.queue_manager import QueueManager
 from src.utils.task_status_record import TaskStatusRecorder
-from src.utils.types import (
-    TaskProcessStage,
-    TaskProcessEndReason,
-    AtItems,
-    TaskProcessEvent,
-)
 
 
 class BaseChain:
@@ -76,8 +76,8 @@ class BaseChain:
         """当一个视频因为错误而结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=TaskProcessStage.END,
-            end_reason=TaskProcessEndReason.ERROR,
+            stage=ProcessStages.END,
+            end_reason=EndReasons.ERROR,
             gmt_end=int(time.time()),
             error_msg=msg,
         )
@@ -86,8 +86,8 @@ class BaseChain:
         """当一个视频正常结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=TaskProcessStage.END,
-            end_reason=TaskProcessEndReason.NORMAL,
+            stage=ProcessStages.END,
+            end_reason=EndReasons.NORMAL,
             gmt_end=int(time.time()),
             if_retry=if_retry,
         )
@@ -96,8 +96,8 @@ class BaseChain:
         """当一个视频不需要处理时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=TaskProcessStage.END,
-            end_reason=TaskProcessEndReason.NONEED,
+            stage=ProcessStages.END,
+            end_reason=EndReasons.NONEED,
             gmt_end=int(time.time()),
         )
 
@@ -147,7 +147,7 @@ class BaseChain:
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
-            _uuid, stage=TaskProcessStage.WAITING_PUSH_TO_CACHE
+            _uuid, stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
         self.cache.set_cache(key=bvid, value=BaseChain.cut_items_leaves(reply_data))
         self._set_normal_end(_uuid, if_retry=is_retry)
@@ -322,8 +322,8 @@ class BaseChain:
             temp = at_items
         _item_uuid = self.task_status_recorder.create_record(
             temp,
-            TaskProcessStage.PREPROCESS,
-            TaskProcessEvent.SUMMARIZE,
+            ProcessStages.PREPROCESS,
+            Chains.SUMMARIZE,
             int(time.time()),
         )
         return _item_uuid
