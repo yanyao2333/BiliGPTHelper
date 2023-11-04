@@ -2,11 +2,8 @@ import asyncio
 import enum
 import json
 import os
-import uuid
 
-from bilibili_api.video import Video
-
-from src.models.task import TaskStatus, ProcessStages, AtItems, Chains
+from src.models.task import ProcessStages, Chains, BiliGPTTask
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="task-status-record")
@@ -48,62 +45,47 @@ class TaskStatusRecorder:
 
     def get_record_by_stage(
         self,
-        stage: ProcessStages,
-        event: Chains = Chains.SUMMARIZE,
+        chain: Chains,
+        stage: ProcessStages = None,
     ):
-        """根据stage获取记录"""
+        """
+        根据stage获取记录
+        当stage为None时，返回所有记录
+        """
         records = []
+        if stage is None:
+            for record in self.tasks.values():
+                if record["event"] == chain.value:
+                    records.append(record)
+            return records
         for record in self.tasks.values():
-            if record["stage"] == stage.value and record["event"] == event.value:
+            if record["stage"] == stage.value and record["event"] == chain.value:
                 records.append(record)
         return records
 
     def create_record(
         self,
-        item: AtItems,
-        stage: ProcessStages,
-        event: Chains,
-        gmt_create: int,
+        item: BiliGPTTask
     ):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
-        _uuid = str(uuid.uuid4())
-        if isinstance(
-                item.get("item")
-                        .get("private_msg_event", {"video_event": {"content": "None"}})
-                        .get("video_event", {})
-                        .get("content", None),
-                Video,
-        ):
-            item["item"]["private_msg_event"]["video_event"]["content"] = item["item"][
-                "private_msg_event"
-            ]["video_event"]["content"].get_bvid()
-        record: TaskStatus = {
-            "stage": stage.value,
-            "data": item,
-            "event": event.value,
-            "gmt_create": gmt_create,
-        }
-        record["data"]["item"]["stage"] = stage.value
-        record["data"]["item"]["event"] = event.value
-        record["data"]["item"]["uuid"] = _uuid
-        self.tasks[_uuid] = record
+        self.tasks[item.uuid] = item.model_dump()
         self.save()
-        return _uuid
+        return item.uuid
 
     def update_record(self, _uuid: str, **kwargs) -> bool:
         """根据uuid更新记录"""
-        record = self.tasks[_uuid]
+        record: BiliGPTTask = self.tasks[_uuid]
         if not record:
             return False
         for key, _value in kwargs.items():
             if isinstance(_value, enum.Enum):
                 _value = _value.value
-            if key == "stage":
-                record["data"]["item"]["stage"] = _value
-                if _value == ProcessStages.END.value:
-                    if record["data"]["item"].get("whisper_subtitle", None):
-                        del record["data"]["item"]["whisper_subtitle"]  # 避免过多冗余信息
-            record[key] = _value
+            if key == "process_stage":
+                record["process_stage"] = _value
+            if key in record:
+                record[key] = _value
+            else:
+                _LOGGER.warning(f"尝试更新不存在的字段：{key}，跳过")
         self.save()
         return True
 
@@ -111,24 +93,14 @@ class TaskStatusRecorder:
         self,
         queue: asyncio.Queue,
         queue_name: str,
-        event: Chains = Chains.SUMMARIZE,
+        chain: Chains,
     ):
         """保存队列"""
         queue_list = []
         while not queue.empty():
-            item: AtItems = queue.get_nowait()
-            item["item"]["stage"] = ProcessStages.IN_QUEUE.value
-            item["item"]["event"] = event.value
-            if isinstance(
-                    item.get("item")
-                            .get("private_msg_event", {"video_event": {"content": "None"}})
-                            .get("video_event", {})
-                            .get("content", None),
-                    Video,
-            ):
-                item["item"]["private_msg_event"]["video_event"]["content"] = item["item"][
-                    "private_msg_event"
-                ]["video_event"]["content"].get_bvid()
+            item: BiliGPTTask = queue.get_nowait()
+            item.process_stage = ProcessStages.IN_QUEUE.value
+            item.chain = chain.value
             queue_list.append(item)
         self.queue[queue_name] = queue_list
         self.save()
@@ -140,12 +112,12 @@ class TaskStatusRecorder:
         for item in self.queue[name]:
             queue.put_nowait(item)
 
-    def get_uuid_by_data(self, data: AtItems):
-        """根据data获取uuid"""
-        for _uuid, record in self.tasks.items():
-            if record["data"] == data:
-                return _uuid
-        return None
+    # def get_uuid_by_data(self, data: BiliGPTTask):
+    #     """根据data获取uuid"""
+    #     for _uuid, record in self.tasks.items():
+    #         if record["data"] == data:
+    #             return _uuid
+    #     return None
 
     def delete_queue(self, name: str):
         """删除队列"""
@@ -153,6 +125,6 @@ class TaskStatusRecorder:
             del self.video_status["queue"][name]
             self.save()
 
-    def get_data_by_uuid(self, _uuid: str) -> TaskStatus:
+    def get_data_by_uuid(self, _uuid: str) -> BiliGPTTask:
         """根据uuid获取data"""
         return self.tasks[_uuid]

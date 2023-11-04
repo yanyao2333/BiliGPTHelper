@@ -18,21 +18,27 @@ _LOGGER = LOGGER.bind(name="summarize-chain")
 class SummarizeChain(BaseChain):
     """摘要处理链"""
 
-    async def _precheck(self, task: BiliGPTTask, _uuid: str) -> bool:
+    async def _precheck(self, task: BiliGPTTask) -> bool:
         """检查是否满足处理条件"""
         match task.source_type:
             case "bili_private":
                 _LOGGER.debug(f"该消息是私信消息，继续处理")
                 await BiliSession.quick_send(self.credential, task, "视频已开始处理，你先别急")
                 return True
-        if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
-            _LOGGER.warning(f"该消息目前并不支持，跳过处理")
-            self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
-            return False
-        if task["item"]["root_id"] != 0 or task["item"]["target_id"] != 0:
-            _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
-            self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
-            return False
+            case "bili_comment":
+                _LOGGER.debug(f"该消息是评论消息，继续处理")
+                return True
+            case "api":
+                _LOGGER.debug(f"该消息是api消息，继续处理")
+                return True
+        # if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
+        #     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
+        #     self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
+        #     return False
+        # if task["item"]["root_id"] != 0 or task["item"]["target_id"] != 0:
+        #     _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
+        #     self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
+        #     return False
         return True
 
     async def _on_start(self):
@@ -40,19 +46,7 @@ class SummarizeChain(BaseChain):
         _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
         uncomplete_task = []
         uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            ProcessStages.PREPROCESS, Chains.SUMMARIZE
-        )
-        uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            ProcessStages.WAITING_LLM_RESPONSE, Chains.SUMMARIZE
-        )
-        uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            ProcessStages.WAITING_SEND, Chains.SUMMARIZE
-        )
-        uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            ProcessStages.WAITING_PUSH_TO_CACHE, Chains.SUMMARIZE
-        )
-        uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            ProcessStages.WAITING_RETRY, Chains.SUMMARIZE
+            chain=Chains.SUMMARIZE
         )
         for task in uncomplete_task:
             self.summarize_queue.put_nowait(task["data"])
@@ -77,20 +71,16 @@ class SummarizeChain(BaseChain):
                 #     raise asyncio.CancelledError
 
                 # 从队列中获取摘要
-                at_items: AtItems = await self.summarize_queue.get()
-                if at_items.get("item").get("uuid", None) is not None:
-                    _item_uuid = at_items["item"][
-                        "uuid"
-                    ]  # TODO 有uuid就一定有视频记录，但如果是继续处理的话，gmt_create时间就会不准确，要不要在读取时再修改一次？
-                else:
-                    _item_uuid = self._create_record(at_items)
-                _LOGGER.info(f"摘要处理链获取到任务了：{at_items['item']['uri']}")
+                task: BiliGPTTask = await self.summarize_queue.get()
+                _item_uuid = task.uuid
+                self._create_record(task)
+                _LOGGER.info(f"摘要处理链获取到任务了：{task.video_url}")
                 # 检查是否满足处理条件
-                if not await self._precheck(at_items, _item_uuid):
+                if not await self._precheck(task):
                     continue
                 # 获取视频相关信息
-                data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
-                resp = await self._get_video_info(at_items, _item_uuid)
+                # data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
+                resp = await self._get_video_info(task)
                 if resp is None:
                     continue
                 (
@@ -101,20 +91,20 @@ class SummarizeChain(BaseChain):
                     video_comments,
                 ) = resp
                 if (
-                    data["stage"] == ProcessStages.PREPROCESS.value
-                    or data["stage"] == ProcessStages.WAITING_LLM_RESPONSE.value
+                    task.process_stage == ProcessStages.PREPROCESS.value
+                    or task.process_stage == ProcessStages.WAITING_LLM_RESPONSE.value
                 ):
                     begin_time = time.perf_counter()
-                    if await self._is_cached_video(at_items, _item_uuid, video_info):
+                    if await self._is_cached_video(task, _item_uuid, video_info):
                         continue
                     # 处理视频音频流和字幕
                     _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
-                    if at_items["item"].get("whisper_subtitle", None) is not None:
-                        text = at_items["item"]["whisper_subtitle"]
-                        _LOGGER.debug(f"使用whisper转写缓存，开始使用模板生成prompt")
+                    if task.subtitle is not None:
+                        text = task.subtitle
+                        _LOGGER.debug(f"使用字幕缓存，开始使用模板生成prompt")
                     else:
                         text = await self._smart_get_subtitle(
-                            video, _item_uuid, format_video_name, at_items
+                            video, _item_uuid, format_video_name, task
                         )
                         if text is None:
                             continue
@@ -151,23 +141,22 @@ class SummarizeChain(BaseChain):
                     self.now_tokens += tokens
                     _LOGGER.debug(f"llm输出内容为：{answer}")
                     _LOGGER.debug(f"调用llm成功，开始处理结果")
-                    at_items["item"]["ai_response"] = answer
+                    task["item"]["ai_response"] = answer
                     self.task_status_recorder.update_record(
-                        _item_uuid, stage=ProcessStages.WAITING_SEND, data=at_items
+                        _item_uuid, stage=ProcessStages.WAITING_SEND, data=task
                     )
 
-                data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
                 if (
-                    data["stage"] == ProcessStages.WAITING_SEND.value
-                    or data["stage"] == ProcessStages.WAITING_RETRY.value
+                    task.process_stage == ProcessStages.WAITING_SEND.value
+                    or task.process_stage == ProcessStages.WAITING_RETRY.value
                 ):
                     begin_time = time.perf_counter()
-                    answer = at_items["item"]["ai_response"]
+                    answer = task.process_result
                     # obj, _type = await video.get_video_obj()
                     # 处理结果
                     if answer:
                         try:
-                            if data["stage"] == ProcessStages.WAITING_RETRY.value:
+                            if task.process_stage == ProcessStages.WAITING_RETRY.value:
                                 raise Exception("触发重试")
                             if "false" in answer:
                                 answer.replace(
@@ -182,20 +171,18 @@ class SummarizeChain(BaseChain):
                                 )
                                 await BiliSession.quick_send(
                                     self.credential,
-                                    at_items,
+                                    task,
                                     f"AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
                                 )
                                 # await BiliSession.quick_send(
-                                #     self.credential, at_items, answer
+                                #     self.credential, task, answer
                                 # )
                                 self._set_noneed_end(_item_uuid)
                                 continue
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
-                            await self.finish(
-                                at_items, resp, video_info["bvid"], _item_uuid
-                            )
+                            await self.finish(task, resp)
 
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
@@ -205,33 +192,32 @@ class SummarizeChain(BaseChain):
                             )
                             await self.retry(
                                 answer,
-                                at_items,
+                                task,
                                 format_video_name,
                                 begin_time,
                                 video_info,
-                                _item_uuid,
                             )
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
     async def retry(
-        self, ai_answer, at_item, format_video_name, begin_time, video_info, _item_uuid
+        self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info
     ):
         """通过重试prompt让chatgpt重新构建json
 
-        :param _item_uuid:
         :param ai_answer: ai返回的内容
-        :param at_item: queue中的原始数据
+        :param task: queue中的原始数据
         :param format_video_name: 格式化后的视频名称
         :param begin_time: 开始时间
         :param video_info: 视频信息
         :return: None
         """
         _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
+        task.gmt_retry_start = int(time.time())
         llm = self.llm_router.get_one()
         if llm is None:
             _LOGGER.warning(f"没有可用的LLM，关闭系统")
-            self._set_err_end(_item_uuid, "没有可用的LLM，跳过处理")
+            self._set_err_end(task.uuid, "没有可用的LLM，跳过处理")
             self.stop_event.set()
             return False
         prompt = llm.use_template(Templates.RETRY, input=ai_answer)
@@ -239,7 +225,7 @@ class SummarizeChain(BaseChain):
         if response is None:
             _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
             self._set_err_end(
-                _item_uuid,
+                task.uuid,
                 f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理",
             )
             self.llm_router.report_error(llm.alias)
@@ -252,21 +238,19 @@ class SummarizeChain(BaseChain):
                 resp = json.loads(answer)
                 if resp["noneed"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
-                    self._set_noneed_end(_item_uuid)
+                    self._set_noneed_end(task.uuid)
                     return False
                 else:
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
-                    await self.finish(
-                        at_item, resp, video_info["bvid"], _item_uuid, True
-                    )
+                    await self.finish(task, resp)
                     return True
             except Exception as e:
                 _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
                 traceback.print_tb(e.__traceback__)
                 self._set_err_end(
-                    _item_uuid,
+                    task.uuid,
                     "重试后处理结果失败，大概是ai返回的格式不对，跳过",
                 )
                 return False

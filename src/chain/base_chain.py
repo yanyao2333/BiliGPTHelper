@@ -20,7 +20,7 @@ from src.models.task import (
     ProcessStages,
     EndReasons,
     BiliGPTTask,
-    Chains,
+    SummarizeAiResponse,
 )
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
@@ -75,78 +75,65 @@ class BaseChain:
         """当一个视频因为错误而结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=ProcessStages.END,
+            process_stage=ProcessStages.END,
             end_reason=EndReasons.ERROR,
             gmt_end=int(time.time()),
             error_msg=msg,
         )
 
-    def _set_normal_end(self, _uuid: str, if_retry: bool = False):
+    def _set_normal_end(self, _uuid: str):
         """当一个视频正常结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=ProcessStages.END,
+            process_stage=ProcessStages.END,
             end_reason=EndReasons.NORMAL,
             gmt_end=int(time.time()),
-            if_retry=if_retry,
         )
 
     def _set_noneed_end(self, _uuid: str):
         """当一个视频不需要处理时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
-            stage=ProcessStages.END,
+            process_stage=ProcessStages.END,
             end_reason=EndReasons.NONEED,
             gmt_end=int(time.time()),
         )
 
     @abc.abstractmethod
-    async def _precheck(self, task: BiliGPTTask, _uuid: str) -> bool:
+    async def _precheck(self, task: BiliGPTTask) -> bool:
         """检查是否符合调用条件
         :param task: AtItem
-        :param _uuid: 这项任务的uuid
 
         如不符合，请务必调用self._set_err_end()方法后返回False
         """
         pass
 
-    @staticmethod
-    def cut_items_leaves(task: BiliGPTTask) -> BiliGPTTask:
-        """精简at items数据，只保存ai_response，准备存入cache"""
-        return task
-
     async def finish(
         self,
         task: BiliGPTTask,
         resp: dict,
-        bvid: str,
-        _uuid: str,
-        is_retry: bool = False,
     ) -> bool:
         """
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
-        :param is_retry:
         :param resp: ai的回复
         :param task:
-        :param _uuid: 任务uuid
-        :param bvid: 视频bvid
         :return:
         """
         _LOGGER = self._LOGGER
         reply_data = copy.deepcopy(task)
-        reply_data["item"]["ai_response"] = resp
-        if task.source_type == "bili_private":
+        reply_data.process_result = SummarizeAiResponse.model_validate(resp)
+        if reply_data.source_type == "bili_private":
             _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
             await self.private_queue.put(reply_data)
-        elif task.source_type == "bili_comment":
+        elif reply_data.source_type == "bili_comment":
             _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
-            _uuid, stage=ProcessStages.WAITING_PUSH_TO_CACHE
+            reply_data.uuid, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
-        self.cache.set_cache(key=bvid, value=BaseChain.cut_items_leaves(reply_data))
-        self._set_normal_end(_uuid, if_retry=is_retry)
+        self.cache.set_cache(key=reply_data.video_id, value=reply_data)
+        self._set_normal_end(task.uuid)
         return True
 
     async def _is_cached_video(
@@ -161,16 +148,16 @@ class BaseChain:
                 case "bili_private":
                     cache = self.cache.get_cache(key=video_info["bvid"])
                     task.process_result = cache
-                    await self.finish(task, cache, video_info["bvid"], _uuid)
+                    await self.finish(task, cache)
                 case "bili_comment":
                     cache = self.cache.get_cache(key=video_info["bvid"])
                     task.process_result = cache
-                    await self.finish(task, cache, video_info["bvid"], _uuid)
+                    await self.finish(task, cache)
             return True
         return False
 
     async def _get_video_info(
-        self, task: BiliGPTTask, _uuid: str
+        self, task: BiliGPTTask
     ) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
         """获取视频的一些信息
 
@@ -192,7 +179,7 @@ class BaseChain:
         # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
         if len(video_info["pages"]) > 1:
             _LOGGER.info(f"视频{format_video_name}分P，跳过处理")
-            self._set_err_end(_uuid, "视频分P，跳过处理")
+            self._set_err_end(task.uuid, "视频分P，跳过处理")
             return None
         # 获取视频标签
         video_tags_string = " ".join(
@@ -205,7 +192,7 @@ class BaseChain:
         )
         return video, video_info, format_video_name, video_tags_string, video_comments
 
-    async def _get_subtitle_from_bilibili(self, video: BiliVideo, _uuid: str) -> str:
+    async def _get_subtitle_from_bilibili(self, video: BiliVideo) -> str:
         """从bilibili获取字幕(返回的是纯字幕，不包含时间轴)"""
         _LOGGER = self._LOGGER
         subtitle_url = await video.get_video_subtitle(page_index=0)
@@ -295,17 +282,13 @@ class BaseChain:
             self.task_status_recorder.update_record(_uuid, data=task, use_whisper=True)
             return text
         _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
-        text = await self._get_subtitle_from_bilibili(video, _uuid)
+        text = await self._get_subtitle_from_bilibili(video)
         return text
 
     def _create_record(self, task: BiliGPTTask) -> str:
         """创建一条任务记录，返回uuid"""
-        _item_uuid = self.task_status_recorder.create_record(
-            task,
-            ProcessStages.PREPROCESS,
-            Chains.SUMMARIZE,
-            int(time.time()),
-        )
+        task.gmt_start_process = int(time.time())
+        _item_uuid = self.task_status_recorder.create_record(task)
         return _item_uuid
 
     @abc.abstractmethod

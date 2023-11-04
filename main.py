@@ -80,7 +80,7 @@ class BiliGPTPipeline:
 
         # 启动侦听器
         _LOGGER.info("正在启动at侦听器")
-        listen.start_listening()
+        listen.start_listen_at()
         _LOGGER.info("启动私信侦听器")
         await listen.listen_private()
 
@@ -127,8 +127,8 @@ class BiliGPTPipeline:
                 # NOTICE: 需要保存其他queue时，需要在这里添加
                 injector.get(TaskStatusRecorder).save_queue(
                     injector.get(QueueManager).get_queue("summarize"),
-                    event=Chains.SUMMARIZE,
                     queue_name="summarize",
+                    chain=Chains.SUMMARIZE,
                 )
                 _LOGGER.info("正在关闭所有的处理链")
                 summarize_task.cancel()

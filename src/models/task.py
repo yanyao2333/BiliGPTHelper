@@ -119,7 +119,7 @@ class Chains(Enum):
 # class AtItems(TypedDict):
 #     id: int
 #     user: dict  # at发送者的个人信息，常规的个人信息dict
-#     item: AtItem
+#     item: List[AtItem]
 #     at_time: int
 
 
@@ -154,25 +154,26 @@ class BiliGPTTask(BaseModel):
     source_type: Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^(bili_comment|bili_private|api)$")]  # type: ignore # 设置task的获取来源
     raw_task_data: dict  # 原始的task数据，包含所有信息
     sender_id: str  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
-    video_title: str  # 视频标题
-    video_image: str  # 视频封面链接
+    # video_title: str  # 视频标题
     video_url: str  # 视频链接
+    video_id: str  # bvid
     source_text_content: str  # 在获取到task时附加的原始文字内容（例如回复的文字内容、私信的消息等）
     source_other_content: Optional[
         BiliAtSpecialAttributes | dict
     ] = None  # 在获取到task时附加的其他原始内容（比如评论id等）
     process_result: Optional[SummarizeAiResponse | str] = None  # 最终处理结果，根据不同的处理链会有不同的结果
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
-    process_stage: Optional[ProcessStages] = Field(
-        default=ProcessStages.PREPROCESS
+    process_stage: Optional[ProcessStages.value] = Field(
+        default=ProcessStages.PREPROCESS.value
     )  # 视频处理阶段
-    chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链
+    chain: Optional[Chains.value] = None  # 视频处理事件，即对应的处理链
     uuid: Optional[UUID4] = Field(default=uuid.uuid4())  # 该任务的uuid4
     gmt_create: int = Field(default=int(time.time()))  # 任务创建时间戳，默认为当前时间戳
+    gmt_start_process: int = Field(default=0)  # 任务开始处理时间，不同于上方的gmt_create，这个是真正开始处理的时间
     gmt_retry_start: int = Field(default=0)  # 如果该任务被重试，就在开始重试时填写该属性
     gmt_end: int = Field(default=0)  # 任务彻底结束时间
     error_msg: Optional[str] = None  # 更详细的错误信息
-    end_reason: Optional[EndReasons] = None  # 任务结束原因
+    end_reason: Optional[EndReasons.value] = None  # 任务结束原因
 
 
 # class TaskStatus(BaseModel):

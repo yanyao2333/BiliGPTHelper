@@ -50,7 +50,7 @@ class ASRouter:
         """加载一个ASR子类"""
         try:
             _asr = attr(self.config, self.llm_router)
-            setattr(_asr.alias, _asr)
+            setattr(self, _asr.alias, _asr)
             _LOGGER.info(f"正在加载 {_asr.alias}")
             _config = self.config.model_dump()["ASRs"][_asr.alias]
             priority = _config["priority"]
