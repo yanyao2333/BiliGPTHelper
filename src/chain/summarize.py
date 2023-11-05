@@ -15,7 +15,7 @@ from src.utils.logging import LOGGER
 _LOGGER = LOGGER.bind(name="summarize-chain")
 
 
-class SummarizeChain(BaseChain):
+class Summarize(BaseChain):
     """摘要处理链"""
 
     async def _precheck(self, task: BiliGPTTask) -> bool:

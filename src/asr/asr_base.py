@@ -2,7 +2,7 @@ import abc
 import re
 from typing import Optional
 
-from src.llm.llm_router import LLMRouter
+from src.core.schedulers.llm_scheduler import LLMRouter
 from src.models.config import Config
 
 

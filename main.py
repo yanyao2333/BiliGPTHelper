@@ -9,7 +9,7 @@ from injector import Injector
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
-from src.chain.summarize import SummarizeChain
+from src.chain.summarize import Summarize
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
 from src.models.config import Config
@@ -76,7 +76,7 @@ class BiliGPTPipeline:
 
         # 初始化摘要处理链
         _LOGGER.info("正在初始化摘要处理链")
-        summarize_chain = injector.get(SummarizeChain)
+        summarize_chain = injector.get(Summarize)
 
         # 启动侦听器
         _LOGGER.info("正在启动at侦听器")

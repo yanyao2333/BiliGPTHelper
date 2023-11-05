@@ -5,9 +5,9 @@ import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Module, singleton, provider
 
-from src.asr.asr_router import ASRouter
 from src.bilibili.bili_credential import BiliCredential
-from src.llm.llm_router import LLMRouter
+from src.core.schedulers.asr_scheduler import ASRouter
+from src.core.schedulers.llm_scheduler import LLMRouter
 from src.models.config import Config
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER

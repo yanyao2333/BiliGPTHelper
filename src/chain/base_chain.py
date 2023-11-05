@@ -10,11 +10,11 @@ import httpx
 from bilibili_api import HEADERS
 from injector import inject
 
-from src.asr.asr_router import ASRouter
+from src.core.schedulers.asr_scheduler import ASRouter
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.llm.llm_router import LLMRouter
+from src.core.schedulers.llm_scheduler import LLMRouter
 from src.models.config import Config
 from src.models.task import (
     ProcessStages,
