@@ -42,8 +42,6 @@ class Listen:
         data: dict = await session.get_at(self.credential)
         _LOGGER.debug(f"获取at消息成功，内容为：{data}")
 
-        # TODO 理论来说这里应该进行数据类型校验，但还有其他高优先级的事要做，且这段代码逻辑并不很复杂，短期内b站api不会改变，就先扔下吧
-
         # if len(data["items"]) != 0:
         #     if run_time > 2:
         #         return
@@ -120,6 +118,10 @@ class Listen:
                 )
                 _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")
                 data.chain = Chains.SUMMARIZE.value
+                if True:
+                    # FIXME 生产环境删除
+                    _LOGGER.info(data)
+                    return
                 await self.summarize_queue.put(data)
                 return
             case content if any(keyword in content for keyword in evaluate_keyword):
@@ -128,6 +130,10 @@ class Listen:
                 )
                 _LOGGER.info(f"检测到关键字{keyword}，放入【锐评】队列")
                 data.chain = Chains.EVALUATE.value
+                if True:
+                    # FIXME 生产环境删除
+                    _LOGGER.info(data)
+                    return
                 await self.evaluate_queue.put(data)
                 return
             case _:
@@ -216,10 +222,10 @@ class Listen:
                     bvid = p2
                     keyword = p1
                 video = BiliVideo(bvid)
-                if (
-                    _session.status == "waiting_for_keyword"
-                    or _session.status == "idle"
-                    or _session.status == "waiting_for_video"
+                if _session.status in (
+                    "waiting_for_keyword",
+                    "idle",
+                    "waiting_for_video",
                 ):
                     _session.video_event = deepcopy(event)
                     _session.video_event.content = video

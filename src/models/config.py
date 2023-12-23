@@ -10,11 +10,14 @@ class BilibiliCookie(BaseModel):
     dedeuserid: str
     ac_time_value: str
 
-    @field_validator("SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after")
+    @field_validator(
+        "SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after"
+    )
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
+
 
 class ChainKeywords(BaseModel):
     summarize_keywords: list[str]
@@ -25,6 +28,7 @@ class ChainKeywords(BaseModel):
         if not value or len(value) == 0:
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
+
 
 class Openai(BaseModel):
     enable: bool = True
@@ -64,13 +68,14 @@ class AiproxyClaude(BaseModel):
             raise ValueError(f"配置文件中{cls}字段为{value}，请检查配置文件，目前支持的模型有{models}")
         return value
 
+
 class LLMs(BaseModel):
     openai: Openai
     aiproxy_claude: AiproxyClaude
 
 
 class OpenaiWhisper(BaseModel):
-    BaseModel.model_config['protected_namespaces'] = ()
+    BaseModel.model_config["protected_namespaces"] = ()
     enable: bool = False
     priority: int = 70
     api_key: str
@@ -93,7 +98,7 @@ class OpenaiWhisper(BaseModel):
 
 
 class LocalWhisper(BaseModel):
-    BaseModel.model_config['protected_namespaces'] = ()
+    BaseModel.model_config["protected_namespaces"] = ()
     enable: bool = False
     priority: int = 60
     model_size: str = "tiny"
@@ -102,7 +107,6 @@ class LocalWhisper(BaseModel):
         default_factory=lambda: os.getenv("WHISPER_MODELS_DIR", "/data/whisper-models")
     )
     after_process: bool = False
-
 
     @field_validator(
         "model_size",
@@ -122,9 +126,11 @@ class LocalWhisper(BaseModel):
                 cls.enable = False
         return value
 
+
 class ASRs(BaseModel):
     local_whisper: LocalWhisper
     openai_whisper: OpenaiWhisper
+
 
 class StorageSettings(BaseModel):
     cache_path: str = Field(
@@ -145,7 +151,6 @@ class StorageSettings(BaseModel):
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
-
 
 
 class Config(BaseModel):

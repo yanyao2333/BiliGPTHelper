@@ -90,9 +90,9 @@ class Summarize(BaseChain):
                     video_tags_string,
                     video_comments,
                 ) = resp
-                if (
-                    task.process_stage == ProcessStages.PREPROCESS.value
-                    or task.process_stage == ProcessStages.WAITING_LLM_RESPONSE.value
+                if task.process_stage in (
+                    ProcessStages.PREPROCESS.value,
+                    ProcessStages.WAITING_LLM_RESPONSE.value,
                 ):
                     begin_time = time.perf_counter()
                     if await self._is_cached_video(task, _item_uuid, video_info):
@@ -146,9 +146,9 @@ class Summarize(BaseChain):
                         _item_uuid, stage=ProcessStages.WAITING_SEND, data=task
                     )
 
-                if (
-                    task.process_stage == ProcessStages.WAITING_SEND.value
-                    or task.process_stage == ProcessStages.WAITING_RETRY.value
+                if task.process_stage in (
+                    ProcessStages.WAITING_SEND.value,
+                    ProcessStages.WAITING_RETRY.value,
                 ):
                     begin_time = time.perf_counter()
                     answer = task.process_result

@@ -1,3 +1,4 @@
+# pylint: skip-file
 """根据任务状态记录生成统计信息"""
 import json
 import os
