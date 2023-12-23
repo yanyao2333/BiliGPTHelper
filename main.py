@@ -1,7 +1,9 @@
 import asyncio
 import os
+import shutil
 import signal
 import sys
+import traceback
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Injector
@@ -15,7 +17,6 @@ from src.listener.bili_listen import Listen
 from src.models.config import Config
 from src.models.task import Chains
 from src.utils.logging import LOGGER
-from src.utils.merge_config import is_have_diff, merge_config, load_config, save_config
 from src.utils.queue_manager import QueueManager
 from src.utils.task_status_record import TaskStatusRecorder
 
@@ -32,25 +33,33 @@ class BiliGPTPipeline:
         if os.getenv("RUNNING_IN_DOCKER") == "yes":
             if not os.listdir("/data"):
                 os.system("cp -r /clone-data/* /data")
+        elif not os.path.isfile("config.yml"):
+            _LOGGER.warning("没有发现配置文件，正在重新生成新的配置文件！")
+            try:
+                shutil.copyfile("./config/example_config.yml", "./config.yml")
+            except Exception as e:
+                _LOGGER.error("在复制过程中发生了未预期的错误，程序初始化停止")
+                traceback.print_exc()
+                exit(0)
 
         config_path = "./config.yml"
 
-        if os.getenv("RUNNING_IN_DOCKER") == "yes":
-            temp = "./config/docker_config.yml"
-            conf = load_config(config_path)
-            template = load_config(temp)
-            if is_have_diff(conf, template):
-                _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
-                merge_config(conf, template)
-                save_config(conf, config_path)
-        else:
-            temp = "./config/example_config.yml"
-            conf = load_config(config_path)
-            template = load_config(temp)
-            if is_have_diff(conf, template):
-                _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
-                merge_config(conf, template)
-                save_config(conf, config_path)
+        # if os.getenv("RUNNING_IN_DOCKER") == "yes":
+        #     temp = "./config/docker_config.yml"
+        #     conf = load_config(config_path)
+        #     template = load_config(temp)
+        #     if is_have_diff(conf, template):
+        #         _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
+        #         merge_config(conf, template)
+        #         save_config(conf, config_path)
+        # else:
+        #     temp = "./config/example_config.yml"
+        #     conf = load_config(config_path)
+        #     template = load_config(temp)
+        #     if is_have_diff(conf, template):
+        #         _LOGGER.info("检测到config模板发生更新，正在更新用户的config，请记得及时填写新的字段")
+        #         merge_config(conf, template)
+        #         save_config(conf, config_path)
 
         # 初始化注入器
         _LOGGER.info("正在初始化注入器")
