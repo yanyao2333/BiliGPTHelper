@@ -90,6 +90,7 @@ class ProcessStages(Enum):
 class Chains(Enum):
     SUMMARIZE = "summarize"
     EVALUATE = "evaluate"
+    GEN_MIND_MAPPING = "gen_mind_mapping"
 
 
 # class AtItem(TypedDict):
