@@ -78,7 +78,7 @@ class AiproxyClaude(LLMBase):
                 + " "
                 + '{"'
             )
-            _LOGGER.info(f"使用模板成功")
+            _LOGGER.info("使用模板成功")
             _LOGGER.debug(f"生成的prompt为：{prompt}")
             return prompt
         except Exception as e:

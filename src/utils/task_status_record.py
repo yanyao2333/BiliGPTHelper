@@ -3,7 +3,7 @@ import enum
 import json
 import os
 
-from src.models.task import ProcessStages, Chains, BiliGPTTask
+from src.models.task import BiliGPTTask, Chains, ProcessStages
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="task-status-record")
@@ -22,7 +22,7 @@ class TaskStatusRecorder:
     def load(self):
         try:
             if os.path.exists(self.file_path):
-                with open(self.file_path, "r", encoding="utf-8") as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     if os.path.getsize(self.file_path) == 0:
                         self.video_status = {}
                     else:
@@ -63,10 +63,7 @@ class TaskStatusRecorder:
                 records.append(record)
         return records
 
-    def create_record(
-        self,
-        item: BiliGPTTask
-    ):
+    def create_record(self, item: BiliGPTTask):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
         self.tasks[item.uuid] = item.model_dump()
         self.save()

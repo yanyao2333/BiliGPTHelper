@@ -12,6 +12,7 @@ _LOGGER = LOGGER.bind(name="bilibili-credential")
 class BiliCredential(Credential):
     """B站凭证类，主要增加定时检查cookie是否过期"""
 
+    # noinspection PyPep8Naming,SpellCheckingInspection
     @inject
     def __init__(
         self,
@@ -20,7 +21,7 @@ class BiliCredential(Credential):
         buvid3: str,
         dedeuserid: str,
         ac_time_value: str,
-        sched: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
+        sched: AsyncIOScheduler,
     ):
         """
         全部强制要求传入，以便于cookie刷新。
@@ -30,7 +31,6 @@ class BiliCredential(Credential):
         :param buvid3: buvid3 cookie值
         :param dedeuserid: dedeuserid cookie值
         :param ac_time_value: ac_time_value cookie值
-        :param sched: 调度器，默认为 Asia/Shanghai 时区
         """
         super().__init__(
             sessdata=SESSDATA,

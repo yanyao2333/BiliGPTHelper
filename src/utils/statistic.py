@@ -25,7 +25,7 @@ def run_statistic(output_dir, data):
             os.remove(os.path.join(output_folder, file))
 
     # Mapping end reasons to readable names
-    end_reason_map = {"normal": "正常结束", "error": "错误结束", "noneed": "AI认为不需要摘要"}
+    end_reason_map = {"normal": "正常结束", "error": "错误结束", "if_no_need_summary": "AI认为不需要摘要"}
 
     # Initialize variables
     end_reasons = []
@@ -36,7 +36,7 @@ def run_statistic(output_dir, data):
     # Populate variables based on task statuses
     if "tasks" not in data or not data["tasks"]:
         return
-    for task_id, task in data["tasks"].items():
+    for _task_id, task in data["tasks"].items():
         end_reason = task.get("end_reason", "normal")
         end_reasons.append(end_reason_map.get(end_reason, "Unknown"))
 
@@ -75,9 +75,7 @@ def run_statistic(output_dir, data):
 
     # Bar Chart for Error Reasons
     plt.figure(figsize=(8, 4))
-    bars = plt.barh(
-        list(error_reason_counts.keys()), list(error_reason_counts.values())
-    )
+    bars = plt.barh(list(error_reason_counts.keys()), list(error_reason_counts.values()))
     plt.xlabel("数量")
     plt.ylabel("错误原因")
     plt.title("错误原因排名")
@@ -99,9 +97,7 @@ def run_statistic(output_dir, data):
     plt.savefig(f"{output_folder}/错误原因排名竖状图.png")
 
     # Bar Chart for User Task Counts (Top 10)
-    top_10_users = dict(
-        sorted(user_id_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-    )
+    top_10_users = dict(sorted(user_id_counts.items(), key=lambda x: x[1], reverse=True)[:10])
     plt.figure(figsize=(8, 4))
     bars = plt.barh(list(map(str, top_10_users.keys())), list(top_10_users.values()))
     plt.xlabel("数量")
@@ -167,7 +163,7 @@ def run_statistic(output_dir, data):
 
 
 if __name__ == "__main__":
-    with open(r"D:\biligpt\records.json", "r", encoding="utf-8") as f:
+    with open(r"D:\biligpt\records.json", encoding="utf-8") as f:
         data = json.load(f)
 
     run_statistic(r"../../statistics", data)

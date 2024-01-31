@@ -7,7 +7,7 @@ httpx
 tenacity
 PyYAML
 ffmpeg-python
-matplotlib
+# matplotlib
 injector
 pydantic
 anthropic

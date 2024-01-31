@@ -92,27 +92,27 @@ class OpenaiWhisper(ASRBase):
             response = json.loads(response)
             return response["text"]
         except Exception:
-            _LOGGER.error(f"返回内容不是字典或者没有text字段，返回None")
+            _LOGGER.error("返回内容不是字典或者没有text字段，返回None")
             return None
 
     async def transcribe(self, audio_path: str, **kwargs) -> Optional[str]:
         loop = asyncio.get_event_loop()
         func_list = []
         temp = self.config.storage_settings.temp_dir
-        _LOGGER.info(f"正在切割音频")
+        _LOGGER.info("正在切割音频")
         export_file_list = self._cut_audio(audio_path)
         _LOGGER.info(f"音频切割完成，共{len(export_file_list)}个切片")
         for file in export_file_list:
             func_list.append(
                 functools.partial(self._sync_transcribe, f"{temp}/{file}", **kwargs)
             )
-        _LOGGER.info(f"正在处理音频")
+        _LOGGER.info("正在处理音频")
         result = await asyncio.gather(
             *[loop.run_in_executor(None, func) for func in func_list]
         )
-        _LOGGER.info(f"音频处理完成")
+        _LOGGER.info("音频处理完成")
         if None in result:
-            _LOGGER.error(f"识别失败，返回None")  # TODO 单独重试失败的切片
+            _LOGGER.error("识别失败，返回None")  # TODO 单独重试失败的切片
             return None
         result = "".join(result)
         # 清除临时文件
@@ -121,7 +121,7 @@ class OpenaiWhisper(ASRBase):
         try:
             if self.config.ASRs.openai_whisper.after_process and result is not None:
                 bt = time.perf_counter()
-                _LOGGER.info(f"正在进行后处理")
+                _LOGGER.info("正在进行后处理")
                 text = await self.after_process(result)
                 _LOGGER.debug(f"后处理完成，用时{time.perf_counter()-bt}s")
                 return text
@@ -136,6 +136,6 @@ class OpenaiWhisper(ASRBase):
         prompt = llm.use_template(Templates.AFTER_PROCESS_SUBTITLE, subtitle=text)
         answer, _ = await llm.completion(prompt)
         if answer is None:
-            _LOGGER.error(f"后处理失败，返回原字幕")
+            _LOGGER.error("后处理失败，返回原字幕")
             return text
         return answer

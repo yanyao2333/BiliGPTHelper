@@ -35,14 +35,14 @@ class LocalWhisper(ASRBase):
             self.config.ASRs.local_whisperdevice,
             download_root=self.config.ASRs.local_whisper.model_dir,
         )
-        _LOGGER.info(f"加载whisper模型成功")
+        _LOGGER.info("加载whisper模型成功")
 
     async def after_process(self, text, **kwargs) -> str:
         llm = self.llm_router.get_one()
         prompt = llm.use_template(Templates.AFTER_PROCESS_SUBTITLE, subtitle=text)
         answer, _ = await llm.completion(prompt)
         if answer is None:
-            _LOGGER.error(f"后处理失败，返回原字幕")
+            _LOGGER.error("后处理失败，返回原字幕")
             return text
         return answer
 
@@ -56,7 +56,7 @@ class LocalWhisper(ASRBase):
 
             text = whi.transcribe(self.model, audio_path)
             text = text["text"]
-            _LOGGER.debug(f"转写成功")
+            _LOGGER.debug("转写成功")
             time_elapsed = time.perf_counter() - begin_time
             _LOGGER.info(f"字幕转译完成，共用时{time_elapsed}s")
             return text
@@ -74,7 +74,7 @@ class LocalWhisper(ASRBase):
         try:
             if w.after_process and result is not None:
                 bt = time.perf_counter()
-                _LOGGER.info(f"正在进行后处理")
+                _LOGGER.info("正在进行后处理")
                 text = await self.after_process(result)
                 _LOGGER.debug(f"后处理完成，用时{time.perf_counter()-bt}s")
                 return text

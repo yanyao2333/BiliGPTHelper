@@ -8,7 +8,7 @@ import tenacity
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
 from src.llm.templates import Templates
-from src.models.task import BiliGPTTask, ProcessStages, Chains
+from src.models.task import BiliGPTTask, Chains, ProcessStages
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
@@ -22,14 +22,14 @@ class Summarize(BaseChain):
         """检查是否满足处理条件"""
         match task.source_type:
             case "bili_private":
-                _LOGGER.debug(f"该消息是私信消息，继续处理")
+                _LOGGER.debug("该消息是私信消息，继续处理")
                 await BiliSession.quick_send(self.credential, task, "视频已开始处理，你先别急")
                 return True
             case "bili_comment":
-                _LOGGER.debug(f"该消息是评论消息，继续处理")
+                _LOGGER.debug("该消息是评论消息，继续处理")
                 return True
             case "api":
-                _LOGGER.debug(f"该消息是api消息，继续处理")
+                _LOGGER.debug("该消息是api消息，继续处理")
                 return True
         # if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
         #     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
@@ -52,7 +52,7 @@ class Summarize(BaseChain):
             self.summarize_queue.put_nowait(task["data"])
         _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
         self.task_status_recorder.load_queue(self.summarize_queue, "summarize")
-        _LOGGER.info(f"正在将上次在队列中的视频加入队列")
+        _LOGGER.info("正在将上次在队列中的视频加入队列")
         self.task_status_recorder.delete_queue("summarize")
 
     @tenacity.retry(
@@ -98,10 +98,10 @@ class Summarize(BaseChain):
                     if await self._is_cached_video(task, _item_uuid, video_info):
                         continue
                     # 处理视频音频流和字幕
-                    _LOGGER.debug(f"视频信息获取成功，正在获取视频音频流和字幕")
+                    _LOGGER.debug("视频信息获取成功，正在获取视频音频流和字幕")
                     if task.subtitle is not None:
                         text = task.subtitle
-                        _LOGGER.debug(f"使用字幕缓存，开始使用模板生成prompt")
+                        _LOGGER.debug("使用字幕缓存，开始使用模板生成prompt")
                     else:
                         text = await self._smart_get_subtitle(
                             video, _item_uuid, format_video_name, task
@@ -116,7 +116,7 @@ class Summarize(BaseChain):
                     )
                     llm = self.llm_router.get_one()
                     if llm is None:
-                        _LOGGER.warning(f"没有可用的LLM，关闭系统")
+                        _LOGGER.warning("没有可用的LLM，关闭系统")
                         self._set_err_end(_item_uuid, "没有可用的LLM，跳过处理")
                         self.stop_event.set()
                         continue
@@ -129,7 +129,7 @@ class Summarize(BaseChain):
                         subtitle=text,
                         description=video_info["desc"],
                     )
-                    _LOGGER.debug(f"prompt生成成功，开始调用llm")
+                    _LOGGER.debug("prompt生成成功，开始调用llm")
                     # 调用openai的Completion API
                     response = await llm.completion(prompt)
                     if response is None:
@@ -140,7 +140,7 @@ class Summarize(BaseChain):
                     answer, tokens = response
                     self.now_tokens += tokens
                     _LOGGER.debug(f"llm输出内容为：{answer}")
-                    _LOGGER.debug(f"调用llm成功，开始处理结果")
+                    _LOGGER.debug("调用llm成功，开始处理结果")
                     task["item"]["ai_response"] = answer
                     self.task_status_recorder.update_record(
                         _item_uuid, stage=ProcessStages.WAITING_SEND, data=task
@@ -165,14 +165,14 @@ class Summarize(BaseChain):
                             if "true" in answer:
                                 answer.replace("true", "True")
                             resp = json.loads(answer)
-                            if resp["noneed"] is True:
+                            if resp["if_no_need_summary"] is True:
                                 _LOGGER.warning(
                                     f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
                                 )
                                 await BiliSession.quick_send(
                                     self.credential,
                                     task,
-                                    f"AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
+                                    "AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
                                 )
                                 # await BiliSession.quick_send(
                                 #     self.credential, task, answer
@@ -212,11 +212,11 @@ class Summarize(BaseChain):
         :param video_info: 视频信息
         :return: None
         """
-        _LOGGER.debug(f"ai返回内容解析失败，正在尝试重试")
+        _LOGGER.debug("ai返回内容解析失败，正在尝试重试")
         task.gmt_retry_start = int(time.time())
         llm = self.llm_router.get_one()
         if llm is None:
-            _LOGGER.warning(f"没有可用的LLM，关闭系统")
+            _LOGGER.warning("没有可用的LLM，关闭系统")
             self._set_err_end(task.uuid, "没有可用的LLM，跳过处理")
             self.stop_event.set()
             return False
@@ -236,7 +236,7 @@ class Summarize(BaseChain):
         if answer:
             try:
                 resp = json.loads(answer)
-                if resp["noneed"] is True:
+                if resp["if_no_need_summary"] is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                     self._set_noneed_end(task.uuid)
                     return False

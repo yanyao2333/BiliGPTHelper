@@ -21,7 +21,7 @@ class Cache:
                 os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
                 with open(self.cache_path, "w", encoding="utf-8") as f:
                     json.dump({}, f, ensure_ascii=False, indent=4)
-            with open(self.cache_path, "r", encoding="utf-8") as f:
+            with open(self.cache_path, encoding="utf-8") as f:
                 self.cache = json.load(f)
         except Exception as e:
             _LOGGER.error(f"加载缓存失败：{e}，尝试删除缓存文件并重试")

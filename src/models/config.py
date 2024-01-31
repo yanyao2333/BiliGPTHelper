@@ -10,6 +10,7 @@ class BilibiliCookie(BaseModel):
     dedeuserid: str
     ac_time_value: str
 
+    # noinspection PyMethodParameters
     @field_validator(
         "SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after"
     )
@@ -21,9 +22,9 @@ class BilibiliCookie(BaseModel):
 
 class ChainKeywords(BaseModel):
     summarize_keywords: list[str]
-    evaluate_keywords: list[str]
 
-    @field_validator("summarize_keywords", "evaluate_keywords", mode="after")
+    # noinspection PyMethodParameters
+    @field_validator("summarize_keywords", mode="after")
     def check_keywords(cls, value):
         if not value or len(value) == 0:
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
@@ -37,6 +38,7 @@ class Openai(BaseModel):
     model: str = "gpt-3.5-turbo-16k"
     api_base: str = Field(default="https://api.openai.com/v1")
 
+    # noinspection PyMethodParameters
     @field_validator("api_key", "model", mode="after")
     def check_required_fields(cls, value, values):
         if values.data.get("enable") is False:
@@ -53,6 +55,7 @@ class AiproxyClaude(BaseModel):
     model: str = "claude-instant-1"
     api_base: str = Field(default="https://api.aiproxy.io/")
 
+    # noinspection PyMethodParameters
     @field_validator("api_key", mode="after")
     def check_required_fields(cls, value, values):
         if values.data.get("enable") is False:
@@ -61,6 +64,7 @@ class AiproxyClaude(BaseModel):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
 
+    # noinspection PyMethodParameters
     @field_validator("model", mode="after")
     def check_model(cls, value, values):
         models = ["claude-instant-1", "claude-2"]
@@ -83,6 +87,7 @@ class OpenaiWhisper(BaseModel):
     api_base: str = Field(default="https://api.openai.com/v1")
     after_process: bool = False
 
+    # noinspection PyMethodParameters
     @field_validator("api_key", mode="after")
     def check_required_fields(cls, value, values):
         if values.data.get("enable") is False:
@@ -91,6 +96,7 @@ class OpenaiWhisper(BaseModel):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
         return value
 
+    # noinspection PyMethodParameters
     @field_validator("model", mode="after")
     def check_model(cls, value, values):
         value = "whisper-1"
@@ -108,6 +114,7 @@ class LocalWhisper(BaseModel):
     )
     after_process: bool = False
 
+    # noinspection PyMethodParameters
     @field_validator(
         "model_size",
         "device",
@@ -140,6 +147,7 @@ class StorageSettings(BaseModel):
     task_status_records: str = Field(default="/data/records.json")
     statistics_dir: str = Field(default="/data/statistics")
 
+    # noinspection PyMethodParameters
     @field_validator(
         "cache_path",
         "temp_dir",

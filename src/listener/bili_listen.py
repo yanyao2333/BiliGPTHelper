@@ -11,7 +11,7 @@ from injector import inject
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
 from src.models.config import Config
-from src.models.task import BiliGPTTask, BiliAtSpecialAttributes, Chains
+from src.models.task import BiliAtSpecialAttributes, BiliGPTTask, Chains
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
 
@@ -26,7 +26,7 @@ class Listen:
         queue_manager: QueueManager,
         # value_manager: GlobalVariablesManager,
         config: Config,
-        schedule: AsyncIOScheduler = AsyncIOScheduler(timezone="Asia/Shanghai"),
+        schedule: AsyncIOScheduler,
     ):
         self.sess = None
         self.credential = credential
@@ -52,7 +52,7 @@ class Listen:
 
         # 判断是否有新消息
         if len(data["items"]) == 0:
-            _LOGGER.debug(f"没有新消息，返回")
+            _LOGGER.debug("没有新消息，返回")
             return
         if self.last_at_time >= data["items"][0]["at_time"]:
             _LOGGER.debug(
@@ -69,7 +69,7 @@ class Listen:
                 item["user"] = data["items"]["user"]
                 new_items.append(item)
         if len(new_items) == 0:
-            _LOGGER.debug(f"没有新消息，返回")
+            _LOGGER.debug("没有新消息，返回")
             return
         _LOGGER.info(f"检测到{len(new_items)}条新消息，开始处理")
         for item in new_items:
@@ -84,19 +84,17 @@ class Listen:
         try:
             event = deepcopy(msg)
             if msg["type"] != "reply" or msg["business_id"] != 1:
-                _LOGGER.warning(f"不是回复消息，跳过")
+                _LOGGER.warning("不是回复消息，跳过")
                 return None
             elif msg["item"]["root_id"] == 0 and msg["item"]["target_id"] == 0:
-                _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")
+                _LOGGER.warning("该消息是楼中楼消息，暂时不受支持，跳过处理")
                 return None
             event["source_type"] = "bili_comment"
             event["raw_task_data"] = deepcopy(msg)
-            event["source_other_content"] = BiliAtSpecialAttributes.model_validate(
-                event
-            )
+            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event)
             event["sender_id"] = event["user"]["mid"]
             event["video_url"] = event["uri"]
-            event["source_text_content"] = event["source_content"]
+            event["source_extra_text"] = event["source_content"]
             event["video_id"] = await BiliVideo(url=event["uri"]).bvid
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
@@ -107,8 +105,9 @@ class Listen:
         return task_metadata
 
     async def dispatch_task(self, data: BiliGPTTask):
-        content = data.source_text_content
+        content = data.source_extra_text
         _LOGGER.info(f"开始处理消息，内容为：{content}")
+        # TODO 这样硬编码不优雅
         summarize_keyword = self.config.chain_keywords.summarize_keywords
         evaluate_keyword = self.config.chain_keywords.evaluate_keywords
         match content:
@@ -118,10 +117,7 @@ class Listen:
                 )
                 _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")
                 data.chain = Chains.SUMMARIZE.value
-                if True:
-                    # FIXME 生产环境删除
-                    _LOGGER.info(data)
-                    return
+                _LOGGER.debug(data)
                 await self.summarize_queue.put(data)
                 return
             case content if any(keyword in content for keyword in evaluate_keyword):
@@ -130,14 +126,11 @@ class Listen:
                 )
                 _LOGGER.info(f"检测到关键字{keyword}，放入【锐评】队列")
                 data.chain = Chains.EVALUATE.value
-                if True:
-                    # FIXME 生产环境删除
-                    _LOGGER.info(data)
-                    return
+                _LOGGER.debug(data)
                 await self.evaluate_queue.put(data)
                 return
             case _:
-                _LOGGER.debug(f"没有检测到关键字，跳过")
+                _LOGGER.debug("没有检测到关键字，跳过")
 
     def start_listen_at(self):
         self.sched.add_job(
@@ -161,7 +154,7 @@ class Listen:
             event["raw_task_data"] = deepcopy(msg)
             event["sender_id"] = event["video_event"]["sender_uid"]
             event["video_url"] = uri
-            event["source_text_content"] = event["text_event"]["content"]
+            event["source_extra_text"] = event["text_event"]["content"]
             event["video_id"] = await video.bvid
             del event["video_event"]
             del event["text_event"]
@@ -208,7 +201,7 @@ class Listen:
 
         match "BV" in event["content"]:
             case True:
-                _LOGGER.debug(f"检测到消息中包含BV号，开始解析")
+                _LOGGER.debug("检测到消息中包含BV号，开始解析")
                 try:
                     p1, p2 = event["content"].split(" ")  # 简单分离一下关键词与链接
                 except Exception as e:

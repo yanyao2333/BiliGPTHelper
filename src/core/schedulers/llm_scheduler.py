@@ -106,13 +106,12 @@ class LLMRouter:
         """根据优先级获取一个可用的LLM子类，如果所有都不可用则返回None"""
         self.order()
         for llm in self.llm_dict.values():
-            if llm["enabled"]:
-                if llm["err_times"] <= 10:
-                    if not llm["prepared"]:
-                        _LOGGER.info(f"正在初始化 {llm['obj'].alias}")
-                        llm["obj"].prepare()
-                        llm["prepared"] = True
-                    return llm["obj"]
+            if llm["enabled"] and llm["err_times"] <= 10:
+                if not llm["prepared"]:
+                    _LOGGER.info(f"正在初始化 {llm['obj'].alias}")
+                    llm["obj"].prepare()
+                    llm["prepared"] = True
+                return llm["obj"]
         return None
 
     def report_error(self, name: str):

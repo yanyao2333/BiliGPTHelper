@@ -7,7 +7,7 @@ from typing import Tuple
 from src.llm.templates import Templates
 from src.models.config import Config
 from src.utils.logging import LOGGER
-from src.utils.prompt_utils import parse_prompt, build_messages
+from src.utils.prompt_utils import build_messages, parse_prompt
 
 _LOGGER = LOGGER.bind(name="llm_base")
 
@@ -83,7 +83,7 @@ class LLMBase:
                 if stemplate
                 else build_messages(utemplate, user_keyword=user_keyword)
             )
-            _LOGGER.info(f"使用模板成功")
+            _LOGGER.info("使用模板成功")
             _LOGGER.debug(f"生成的prompt为：{prompt}")
             return prompt
         except Exception as e:

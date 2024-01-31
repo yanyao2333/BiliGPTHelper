@@ -108,13 +108,12 @@ class ASRouter:
         """根据优先级获取一个可用的ASR子类，如果所有都不可用则返回None"""
         self.order()
         for asr in self.asr_dict.values():
-            if asr["enabled"]:
-                if asr["err_times"] <= 10:
-                    if not asr["prepared"]:
-                        _LOGGER.info(f"正在初始化 {asr['obj'].alias}")
-                        asr["obj"].prepare()
-                        asr["prepared"] = True
-                    return asr["obj"]
+            if asr["enabled"] and asr["err_times"] <= 10:
+                if not asr["prepared"]:
+                    _LOGGER.info(f"正在初始化 {asr['obj'].alias}")
+                    asr["obj"].prepare()
+                    asr["prepared"] = True
+                return asr["obj"]
         LOGGER.error("没有可用的ASR子类")
         return None
 

@@ -42,8 +42,7 @@ class BiliSession:
         # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
         msg_list = [
             f"【视频摘要】{response['summary']}",
-            f"【自我评分】{response['score']}分\n\n【咱的思考】{response['thinking']}\n\n另外欢迎在github上给本项目点个star！",
-            # "https://github.com/yanyao2333/BiliGPTHelper",
+            f"【视频评分】{response['score']}分\n\n【咱还想说】{response['thinking']}",
         ]
         return msg_list
 
@@ -57,7 +56,7 @@ class BiliSession:
         while True:
             try:
                 data: BiliGPTTask = await self.private_queue.get()
-                _LOGGER.debug(f"获取到新的私信任务，开始处理")
+                _LOGGER.debug("获取到新的私信任务，开始处理")
                 _, _type = await BiliVideo(
                     credential=self.credential, url=data.video_url
                 ).get_video_obj()

@@ -9,16 +9,12 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.models.task import SummarizeAiResponse, BiliGPTTask
+from src.models.task import BiliGPTTask, SummarizeAiResponse
 from src.utils.callback import chain_callback
+from src.utils.exceptions import RiskControlFindError
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="bilibili-comment")
-
-
-class RiskControlFindError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
 
 
 class BiliComment:
@@ -59,7 +55,7 @@ class BiliComment:
         if len(comment_list) == 0:
             _LOGGER.warning(f"视频{aid}没有评论")
             return None
-        _LOGGER.debug(f"正在随机选择评论")
+        _LOGGER.debug("正在随机选择评论")
         ignore_name_list = [
             "哔哩哔哩",
             "AI",
@@ -84,24 +80,24 @@ class BiliComment:
         # 挑选三条评论
         if len(new_comment_list) < 3:
             _LOGGER.debug(f"视频{aid}的评论数量小于3，直接挑选")
-            _LOGGER.debug(f"正在拼接评论")
+            _LOGGER.debug("正在拼接评论")
             comment_str = ""
             for _comment in new_comment_list:
                 comment_str += f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
-            _LOGGER.debug(f"拼接评论成功")
+            _LOGGER.debug("拼接评论成功")
             return comment_str
-        _LOGGER.debug(f"正在挑选三条评论")
+        _LOGGER.debug("正在挑选三条评论")
         selected_comment_list = random.sample(new_comment_list, 3)
-        _LOGGER.debug(f"挑选三条评论成功")
+        _LOGGER.debug("挑选三条评论成功")
         # 拼接评论
-        _LOGGER.debug(f"正在拼接评论")
+        _LOGGER.debug("正在拼接评论")
         comment_str = ""
         for _comment in selected_comment_list:
             _comment: dict
             comment_str += (
                 f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
             )
-        _LOGGER.debug(f"拼接评论成功")
+        _LOGGER.debug("拼接评论成功")
         return comment_str
 
     @staticmethod
@@ -112,7 +108,7 @@ class BiliComment:
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        return f"【视频摘要】{response['summary']}\n\n【自我评分】{response['score']}\n\n【咱的思考】{response['thinking']}"
+        return f"【视频摘要】{response['summary']}\n\n【视频评分】{response['score']}\n\n【咱还想说】{response['thinking']}"
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -127,10 +123,10 @@ class BiliComment:
             while risk_control_count < 3:
                 try:
                     if data is not None:
-                        _LOGGER.debug(f"继续处理上一次失败的评论任务")
+                        _LOGGER.debug("继续处理上一次失败的评论任务")
                     if data is None:
                         data: Optional[BiliGPTTask] = await self.comment_queue.get()
-                        _LOGGER.debug(f"获取到新的评论任务，开始处理")
+                        _LOGGER.debug("获取到新的评论任务，开始处理")
                     video_obj, _type = await BiliVideo(
                         credential=self.credential, url=data.video_url
                     ).get_video_obj()
@@ -139,7 +135,7 @@ class BiliComment:
                     if str(aid).startswith("av"):
                         aid = aid[2:]
                     oid = int(aid)
-                    root = data.source_other_content.source_id
+                    root = data.source_extra_attr.source_id
                     text = BiliComment.build_reply_content(data.process_result)
                     resp = await comment.send_comment(
                         oid=oid,
@@ -150,18 +146,18 @@ class BiliComment:
                     )
                     if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
                         _LOGGER.debug(resp)
-                        _LOGGER.debug(f"发送评论成功，休息30秒")
+                        _LOGGER.debug("发送评论成功，休息30秒")
                         await asyncio.sleep(30)
                         break  # 评论成功，退出当前任务的重试循环
-                    _LOGGER.warning(f"发送评论失败，大概率被风控了，咱们歇会儿再试吧")
+                    _LOGGER.warning("发送评论失败，大概率被风控了，咱们歇会儿再试吧")
                     risk_control_count += 1
                     if risk_control_count >= 3:
-                        _LOGGER.warning(f"连续3次风控，跳过当前任务处理下一个")
+                        _LOGGER.warning("连续3次风控，跳过当前任务处理下一个")
                         data = None
                         break
                     raise RiskControlFindError
                 except RiskControlFindError:
-                    _LOGGER.warning(f"遇到风控，等待60秒后重试当前任务")
+                    _LOGGER.warning("遇到风控，等待60秒后重试当前任务")
                     await asyncio.sleep(60)
                 except asyncio.CancelledError:
                     _LOGGER.info("评论处理链关闭")

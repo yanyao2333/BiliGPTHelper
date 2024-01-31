@@ -1,0 +1,22 @@
+line-length = 120  # 代码最大行宽
+[lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = []  # 忽略的规则
+
+[format]
+docstring-code-format = true
+docstring-code-line-length = 20
+quote-style = "double"

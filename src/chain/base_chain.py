@@ -10,16 +10,16 @@ import httpx
 from bilibili_api import HEADERS
 from injector import inject
 
-from src.core.schedulers.asr_scheduler import ASRouter
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
+from src.core.schedulers.asr_scheduler import ASRouter
 from src.core.schedulers.llm_scheduler import LLMRouter
 from src.models.config import Config
 from src.models.task import (
-    ProcessStages,
-    EndReasons,
     BiliGPTTask,
+    EndReasons,
+    ProcessStages,
     SummarizeAiResponse,
 )
 from src.utils.cache import Cache
@@ -123,10 +123,10 @@ class BaseChain:
         reply_data = copy.deepcopy(task)
         reply_data.process_result = SummarizeAiResponse.model_validate(resp)
         if reply_data.source_type == "bili_private":
-            _LOGGER.debug(f"该消息是私信消息，将结果放入私信处理队列")
+            _LOGGER.debug("该消息是私信消息，将结果放入私信处理队列")
             await self.private_queue.put(reply_data)
         elif reply_data.source_type == "bili_comment":
-            _LOGGER.debug(f"正在将结果加入发送队列，等待回复")
+            _LOGGER.debug("正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
@@ -170,11 +170,11 @@ class BaseChain:
         video_comments: 随机获取的几条视频评论拼接的字符串
         """
         _LOGGER = self._LOGGER
-        _LOGGER.info(f"开始处理该视频音频流和字幕")
+        _LOGGER.info("开始处理该视频音频流和字幕")
         video = BiliVideo(self.credential, url=task.video_url)
-        _LOGGER.debug(f"视频对象创建成功，正在获取视频信息")
+        _LOGGER.debug("视频对象创建成功，正在获取视频信息")
         video_info = await video.get_video_info
-        _LOGGER.debug(f"视频信息获取成功，正在获取视频标签")
+        _LOGGER.debug("视频信息获取成功，正在获取视频标签")
         format_video_name = f"『{video_info['title']}』"
         # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
         if len(video_info["pages"]) > 1:
@@ -185,7 +185,7 @@ class BaseChain:
         video_tags_string = " ".join(
             f"#{tag['tag_name']}" for tag in await video.get_video_tags()
         )
-        _LOGGER.debug(f"视频标签获取成功，开始获取视频评论")
+        _LOGGER.debug("视频标签获取成功，开始获取视频评论")
         # 获取视频评论
         video_comments = await BiliComment.get_random_comment(
             video_info["aid"], self.credential
@@ -196,11 +196,11 @@ class BaseChain:
         """从bilibili获取字幕(返回的是纯字幕，不包含时间轴)"""
         _LOGGER = self._LOGGER
         subtitle_url = await video.get_video_subtitle(page_index=0)
-        _LOGGER.debug(f"视频字幕获取成功，正在读取字幕")
+        _LOGGER.debug("视频字幕获取成功，正在读取字幕")
         # 下载字幕
         async with httpx.AsyncClient() as client:
             resp = await client.get("https:" + subtitle_url, headers=HEADERS)
-        _LOGGER.debug(f"字幕获取成功，正在转换为纯字幕")
+        _LOGGER.debug("字幕获取成功，正在转换为纯字幕")
         # 转换字幕格式
         text = ""
         for subtitle in resp.json()["body"]:
@@ -212,7 +212,7 @@ class BaseChain:
     ) -> Optional[str]:
         _LOGGER = self._LOGGER
         if self.asr is None:
-            _LOGGER.warning(f"没有可用的asr，跳过处理")
+            _LOGGER.warning("没有可用的asr，跳过处理")
             self._set_err_end(_uuid, "没有可用的asr，跳过处理")
         if is_retry:
             # 如果是重试，就默认已下载音频文件，直接开始转写
@@ -220,20 +220,20 @@ class BaseChain:
             audio_path = f"{self.temp_dir}/{bvid} temp.mp3"
             self.asr = self.asr_router.get_one()  # 重新获取一个，防止因为错误而被禁用，但调用端没及时更新
             if self.asr is None:
-                _LOGGER.warning(f"没有可用的asr，跳过处理")
+                _LOGGER.warning("没有可用的asr，跳过处理")
                 self._set_err_end(_uuid, "没有可用的asr，跳过处理")
             text = await self.asr.transcribe(audio_path)
             if text is None:
-                _LOGGER.warning(f"音频转写失败，报告并重试")
+                _LOGGER.warning("音频转写失败，报告并重试")
                 self.asr_router.report_error(self.asr.alias)
                 await self._get_subtitle_from_asr(
                     video, _uuid, is_retry=True
                 )  # 递归，应该不会爆栈
             return text
-        _LOGGER.debug(f"正在获取视频音频流")
+        _LOGGER.debug("正在获取视频音频流")
         video_download_url = await video.get_video_download_url()
         audio_url = video_download_url["dash"]["audio"][0]["baseUrl"]
-        _LOGGER.debug(f"视频下载链接获取成功，正在下载视频中的音频流")
+        _LOGGER.debug("视频下载链接获取成功，正在下载视频中的音频流")
         bvid = await video.bvid
         # 下载视频中的音频流
         async with httpx.AsyncClient() as client:
@@ -243,26 +243,26 @@ class BaseChain:
                 os.mkdir(temp_dir)
             with open(f"{temp_dir}/{bvid} temp.m4s", "wb") as f:
                 f.write(resp.content)
-        _LOGGER.debug(f"视频中的音频流下载成功，正在转换音频格式")
+        _LOGGER.debug("视频中的音频流下载成功，正在转换音频格式")
         # 转换音频格式
         (
             ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s")
             .output(f"{temp_dir}/{bvid} temp.mp3")
             .run(overwrite_output=True)
         )
-        _LOGGER.debug(f"音频格式转换成功，正在使用whisper转写音频")
+        _LOGGER.debug("音频格式转换成功，正在使用whisper转写音频")
         # 使用whisper转写音频
         audio_path = f"{temp_dir}/{bvid} temp.mp3"
         text = await self.asr.transcribe(audio_path)
         if text is None:
-            _LOGGER.warning(f"音频转写失败，报告并重试")
+            _LOGGER.warning("音频转写失败，报告并重试")
             self.asr_router.report_error(self.asr.alias)
             await self._get_subtitle_from_asr(video, _uuid, is_retry=True)  # 递归，应该不会爆栈
-        _LOGGER.debug(f"音频转写成功，正在删除临时文件")
+        _LOGGER.debug("音频转写成功，正在删除临时文件")
         # 删除临时文件
         os.remove(f"{temp_dir}/{bvid} temp.m4s")
         os.remove(f"{temp_dir}/{bvid} temp.mp3")
-        _LOGGER.debug(f"临时文件删除成功")
+        _LOGGER.debug("临时文件删除成功")
         return text
 
     async def _smart_get_subtitle(

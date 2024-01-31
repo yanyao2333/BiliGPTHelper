@@ -1,6 +1,6 @@
 from typing import Optional
 
-from bilibili_api import video, parse_link, ResourceType
+from bilibili_api import ResourceType, parse_link, video
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
