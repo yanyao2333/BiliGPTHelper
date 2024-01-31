@@ -11,9 +11,7 @@ class BilibiliCookie(BaseModel):
     ac_time_value: str
 
     # noinspection PyMethodParameters
-    @field_validator(
-        "SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after"
-    )
+    @field_validator("SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after")
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
@@ -109,9 +107,7 @@ class LocalWhisper(BaseModel):
     priority: int = 60
     model_size: str = "tiny"
     device: str = "cpu"
-    model_dir: str = Field(
-        default_factory=lambda: os.getenv("WHISPER_MODELS_DIR", "/data/whisper-models")
-    )
+    model_dir: str = Field(default_factory=lambda: os.getenv("WHISPER_MODELS_DIR", "/data/whisper-models"))
     after_process: bool = False
 
     # noinspection PyMethodParameters
@@ -140,9 +136,7 @@ class ASRs(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    cache_path: str = Field(
-        default_factory=lambda: os.getenv("CACHE_FILE", "/data/cache.json")
-    )
+    cache_path: str = Field(default_factory=lambda: os.getenv("CACHE_FILE", "/data/cache.json"))
     temp_dir: str = Field(default_factory=lambda: os.getenv("TEMP_DIR", "/data/temp"))
     task_status_records: str = Field(default="/data/records.json")
     statistics_dir: str = Field(default="/data/statistics")

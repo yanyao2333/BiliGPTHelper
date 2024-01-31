@@ -21,9 +21,7 @@ class OpenaiWhisper(ASRBase):
     def prepare(self) -> None:
         apikey = self.config.ASRs.openai_whisper.api_key
         apikey = apikey[:-5] + "*****"
-        _LOGGER.info(
-            f"初始化OpenaiWhisper，api_key为{apikey}，api端点为{self.config.ASRs.openai_whisper.api_base}"
-        )
+        _LOGGER.info(f"初始化OpenaiWhisper，api_key为{apikey}，api端点为{self.config.ASRs.openai_whisper.api_base}")
 
     def _cut_audio(self, audio_path: str) -> list[str]:
         """将音频切割为300s的片段，前后有5s的滑动窗口，返回切割后的文件名列表
@@ -47,15 +45,7 @@ class OpenaiWhisper(ASRBase):
 
             if start_time + segment_length < len(audio):
                 _LOGGER.debug(f"正在处理{start_time}到{start_time+segment_length}的音频")
-                segment = (
-                    segment
-                    + audio[
-                        start_time
-                        + segment_length : start_time
-                        + segment_length
-                        + window_length
-                    ]
-                )
+                segment = segment + audio[start_time + segment_length: start_time + segment_length + window_length]
 
             output_segments.append(segment)
             start_time += segment_length
@@ -80,9 +70,7 @@ class OpenaiWhisper(ASRBase):
         _LOGGER.debug(f"正在识别{audio_path}")
         openai.api_key = self.config.ASRs.openai_whisper.api_key
         openai.api_base = self.config.ASRs.openai_whisper.api_base
-        response = openai.Audio.transcribe(
-            model="whisper-1", file=open(audio_path, "rb")
-        )
+        response = openai.Audio.transcribe(model="whisper-1", file=open(audio_path, "rb"))
 
         _LOGGER.debug(f"返回内容为{response}")
 
@@ -103,13 +91,9 @@ class OpenaiWhisper(ASRBase):
         export_file_list = self._cut_audio(audio_path)
         _LOGGER.info(f"音频切割完成，共{len(export_file_list)}个切片")
         for file in export_file_list:
-            func_list.append(
-                functools.partial(self._sync_transcribe, f"{temp}/{file}", **kwargs)
-            )
+            func_list.append(functools.partial(self._sync_transcribe, f"{temp}/{file}", **kwargs))
         _LOGGER.info("正在处理音频")
-        result = await asyncio.gather(
-            *[loop.run_in_executor(None, func) for func in func_list]
-        )
+        result = await asyncio.gather(*[loop.run_in_executor(None, func) for func in func_list])
         _LOGGER.info("音频处理完成")
         if None in result:
             _LOGGER.error("识别失败，返回None")  # TODO 单独重试失败的切片

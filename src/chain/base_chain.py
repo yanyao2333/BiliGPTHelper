@@ -129,16 +129,12 @@ class BaseChain:
             _LOGGER.debug("正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
-        self.task_status_recorder.update_record(
-            reply_data.uuid, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
-        )
+        self.task_status_recorder.update_record(reply_data.uuid, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE)
         self.cache.set_cache(key=reply_data.video_id, value=reply_data)
         self._set_normal_end(task.uuid)
         return True
 
-    async def _is_cached_video(
-        self, task: BiliGPTTask, _uuid: str, video_info: dict
-    ) -> bool:
+    async def _is_cached_video(self, task: BiliGPTTask, _uuid: str, video_info: dict) -> bool:
         """检查是否是缓存的视频
         如果是缓存的视频，直接从缓存中获取结果并发送
         """
@@ -156,9 +152,7 @@ class BaseChain:
             return True
         return False
 
-    async def _get_video_info(
-        self, task: BiliGPTTask
-    ) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
+    async def _get_video_info(self, task: BiliGPTTask) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
         """获取视频的一些信息
 
         :return 视频正常返回元组(video, video_info, format_video_name, video_tags_string, video_comments)
@@ -182,14 +176,10 @@ class BaseChain:
             self._set_err_end(task.uuid, "视频分P，跳过处理")
             return None
         # 获取视频标签
-        video_tags_string = " ".join(
-            f"#{tag['tag_name']}" for tag in await video.get_video_tags()
-        )
+        video_tags_string = " ".join(f"#{tag['tag_name']}" for tag in await video.get_video_tags())
         _LOGGER.debug("视频标签获取成功，开始获取视频评论")
         # 获取视频评论
-        video_comments = await BiliComment.get_random_comment(
-            video_info["aid"], self.credential
-        )
+        video_comments = await BiliComment.get_random_comment(video_info["aid"], self.credential)
         return video, video_info, format_video_name, video_tags_string, video_comments
 
     async def _get_subtitle_from_bilibili(self, video: BiliVideo) -> str:
@@ -207,9 +197,7 @@ class BaseChain:
             text += f"{subtitle['content']}\n"
         return text
 
-    async def _get_subtitle_from_asr(
-        self, video: BiliVideo, _uuid: str, is_retry: bool = False
-    ) -> Optional[str]:
+    async def _get_subtitle_from_asr(self, video: BiliVideo, _uuid: str, is_retry: bool = False) -> Optional[str]:
         _LOGGER = self._LOGGER
         if self.asr is None:
             _LOGGER.warning("没有可用的asr，跳过处理")
@@ -226,9 +214,7 @@ class BaseChain:
             if text is None:
                 _LOGGER.warning("音频转写失败，报告并重试")
                 self.asr_router.report_error(self.asr.alias)
-                await self._get_subtitle_from_asr(
-                    video, _uuid, is_retry=True
-                )  # 递归，应该不会爆栈
+                await self._get_subtitle_from_asr(video, _uuid, is_retry=True)  # 递归，应该不会爆栈
             return text
         _LOGGER.debug("正在获取视频音频流")
         video_download_url = await video.get_video_download_url()
@@ -245,11 +231,7 @@ class BaseChain:
                 f.write(resp.content)
         _LOGGER.debug("视频中的音频流下载成功，正在转换音频格式")
         # 转换音频格式
-        (
-            ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s")
-            .output(f"{temp_dir}/{bvid} temp.mp3")
-            .run(overwrite_output=True)
-        )
+        (ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s").output(f"{temp_dir}/{bvid} temp.mp3").run(overwrite_output=True))
         _LOGGER.debug("音频格式转换成功，正在使用whisper转写音频")
         # 使用whisper转写音频
         audio_path = f"{temp_dir}/{bvid} temp.mp3"

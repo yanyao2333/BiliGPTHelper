@@ -34,16 +34,10 @@ class ASRouter:
         for file_name in os.listdir(raw_path):
             if file_name.endswith(".py") and file_name != "__init__.py":
                 module_name = file_name[:-3]
-                module = __import__(
-                    f"{py_style_path}.{module_name}", fromlist=[module_name]
-                )
+                module = __import__(f"{py_style_path}.{module_name}", fromlist=[module_name])
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (
-                        inspect.isclass(attr)
-                        and issubclass(attr, ASRBase)
-                        and attr != ASRBase
-                    ):
+                    if inspect.isclass(attr) and issubclass(attr, ASRBase) and attr != ASRBase:
                         self.load(attr)
 
     def load(self, attr):

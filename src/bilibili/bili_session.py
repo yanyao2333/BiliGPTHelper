@@ -57,9 +57,7 @@ class BiliSession:
             try:
                 data: BiliGPTTask = await self.private_queue.get()
                 _LOGGER.debug("获取到新的私信任务，开始处理")
-                _, _type = await BiliVideo(
-                    credential=self.credential, url=data.video_url
-                ).get_video_obj()
+                _, _type = await BiliVideo(credential=self.credential, url=data.video_url).get_video_obj()
                 msg_list = BiliSession.build_reply_content(data.process_result)
                 for msg in msg_list:
                     await session.send_msg(

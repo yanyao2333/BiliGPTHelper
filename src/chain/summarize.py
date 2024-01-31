@@ -104,17 +104,13 @@ class Summarize(BaseChain):
                         text = task.subtitle
                         _LOGGER.debug("使用字幕缓存，开始使用模板生成prompt")
                     else:
-                        text = await self._smart_get_subtitle(
-                            video, _item_uuid, format_video_name, task
-                        )
+                        text = await self._smart_get_subtitle(video, _item_uuid, format_video_name, task)
                         if text is None:
                             continue
                     _LOGGER.info(
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
-                    self.task_status_recorder.update_record(
-                        _item_uuid, stage=ProcessStages.WAITING_LLM_RESPONSE
-                    )
+                    self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_LLM_RESPONSE)
                     llm = self.llm_router.get_one()
                     if llm is None:
                         _LOGGER.warning("没有可用的LLM，关闭系统")
@@ -143,9 +139,7 @@ class Summarize(BaseChain):
                     _LOGGER.debug(f"llm输出内容为：{answer}")
                     _LOGGER.debug("调用llm成功，开始处理结果")
                     task["item"]["ai_response"] = answer
-                    self.task_status_recorder.update_record(
-                        _item_uuid, stage=ProcessStages.WAITING_SEND, data=task
-                    )
+                    self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_SEND, data=task)
 
                 if task.process_stage in (
                     ProcessStages.WAITING_SEND.value,
@@ -160,16 +154,12 @@ class Summarize(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY.value:
                                 raise Exception("触发重试")
                             if "false" in answer:
-                                answer.replace(
-                                    "false", "False"
-                                )  # 解决一部分因为大小写问题导致的json解析失败
+                                answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
                             if "true" in answer:
                                 answer.replace("true", "True")
                             resp = json.loads(answer)
                             if resp["if_no_need_summary"] is True:
-                                _LOGGER.warning(
-                                    f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
-                                )
+                                _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                                 await BiliSession.quick_send(
                                     self.credential,
                                     task,
@@ -188,9 +178,7 @@ class Summarize(BaseChain):
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                             traceback.print_tb(e.__traceback__)
-                            self.task_status_recorder.update_record(
-                                _item_uuid, stage=ProcessStages.WAITING_RETRY
-                            )
+                            self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_RETRY)
                             await self.retry(
                                 answer,
                                 task,
@@ -201,9 +189,7 @@ class Summarize(BaseChain):
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
-    async def retry(
-        self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info
-    ):
+    async def retry(self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info):
         """通过重试prompt让chatgpt重新构建json
 
         :param ai_answer: ai返回的内容

@@ -76,7 +76,9 @@ class SummarizeAiResponse(BaseModel):
 class ProcessStages(Enum):
     """视频处理阶段"""
 
-    PREPROCESS = "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
+    PREPROCESS = (
+        "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
+    )
     WAITING_LLM_RESPONSE = (
         "waiting_llm_response"  # 等待llm的回复 这个阶段应该重新加载字幕或从items中的whisper_subtitle节点读取
     )

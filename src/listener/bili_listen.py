@@ -63,9 +63,7 @@ class Listen:
         new_items = []
         for item in reversed(data["items"]):
             if item["at_time"] > self.last_at_time:
-                _LOGGER.debug(
-                    f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列"
-                )
+                _LOGGER.debug(f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列")
                 item["user"] = data["items"]["user"]
                 new_items.append(item)
         if len(new_items) == 0:
@@ -112,18 +110,14 @@ class Listen:
         evaluate_keyword = self.config.chain_keywords.evaluate_keywords
         match content:
             case content if any(keyword in content for keyword in summarize_keyword):
-                keyword = next(
-                    keyword for keyword in summarize_keyword if keyword in content
-                )
+                keyword = next(keyword for keyword in summarize_keyword if keyword in content)
                 _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")
                 data.chain = Chains.SUMMARIZE.value
                 _LOGGER.debug(data)
                 await self.summarize_queue.put(data)
                 return
             case content if any(keyword in content for keyword in evaluate_keyword):
-                keyword = next(
-                    keyword for keyword in evaluate_keyword if keyword in content
-                )
+                keyword = next(keyword for keyword in evaluate_keyword if keyword in content)
                 _LOGGER.info(f"检测到关键字{keyword}，放入【锐评】队列")
                 data.chain = Chains.EVALUATE.value
                 _LOGGER.debug(data)
@@ -168,9 +162,7 @@ class Listen:
         return task_metadata
 
     async def handle_video(self, user_id, event):
-        _session = self.user_sessions.get(
-            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
-        )
+        _session = self.user_sessions.get(user_id, {"status": "idle", "text_event": {}, "video_event": {}})
         match _session["status"]:
             case "idle" | "waiting_for_keyword":
                 _session["status"] = "waiting_for_keyword"

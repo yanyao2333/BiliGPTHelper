@@ -94,9 +94,7 @@ class BiliComment:
         comment_str = ""
         for _comment in selected_comment_list:
             _comment: dict
-            comment_str += (
-                f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
-            )
+            comment_str += f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
         _LOGGER.debug("拼接评论成功")
         return comment_str
 
@@ -127,9 +125,7 @@ class BiliComment:
                     if data is None:
                         data: Optional[BiliGPTTask] = await self.comment_queue.get()
                         _LOGGER.debug("获取到新的评论任务，开始处理")
-                    video_obj, _type = await BiliVideo(
-                        credential=self.credential, url=data.video_url
-                    ).get_video_obj()
+                    video_obj, _type = await BiliVideo(credential=self.credential, url=data.video_url).get_video_obj()
                     video_obj: video.Video
                     aid = video_obj.get_aid()
                     if str(aid).startswith("av"):
