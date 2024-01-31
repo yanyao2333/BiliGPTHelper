@@ -15,10 +15,8 @@ from src.chain.summarize import Summarize
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
 from src.models.config import Config
-from src.models.task import Chains
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
-from src.utils.task_status_record import TaskStatusRecorder
 
 
 class BiliGPTPipeline:
@@ -80,6 +78,12 @@ class BiliGPTPipeline:
         try:
             _injector = self.injector
 
+            # 恢复队列任务
+            _LOGGER.info("正在恢复队列信息")
+            _injector.get(QueueManager).recover_queue(
+                _injector.get(Config).storage_settings.queue_save_dir
+            )
+
             # 初始化at侦听器
             _LOGGER.info("正在初始化at侦听器")
             listen = _injector.get(Listen)
@@ -123,7 +127,7 @@ class BiliGPTPipeline:
 
             _LOGGER.info("摘要处理链、评论处理链、私信处理链启动完成")
 
-            _LOGGER.info("🎉启动完成 enjoy it")
+            _LOGGER.success("🎉启动完成 enjoy it")
 
             while True:
                 if BiliGPTPipeline.stop_event.is_set():
@@ -135,11 +139,8 @@ class BiliGPTPipeline:
                     sched.shutdown()
                     listen.close_private_listen()
                     _LOGGER.info("正在保存队列任务信息")
-                    # NOTICE: 需要保存其他queue时，需要在这里添加
-                    _injector.get(TaskStatusRecorder).save_queue(
-                        _injector.get(QueueManager).get_queue("summarize"),
-                        queue_name="summarize",
-                        chain=Chains.SUMMARIZE,
+                    _injector.get(QueueManager).safe_close_all_queues(
+                        _injector.get(Config).storage_settings.queue_save_dir
                     )
                     _LOGGER.info("正在关闭所有的处理链")
                     summarize_task.cancel()

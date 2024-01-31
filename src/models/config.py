@@ -146,6 +146,7 @@ class StorageSettings(BaseModel):
     temp_dir: str = Field(default_factory=lambda: os.getenv("TEMP_DIR", "/data/temp"))
     task_status_records: str = Field(default="/data/records.json")
     statistics_dir: str = Field(default="/data/statistics")
+    queue_save_dir: str = Field(default="/data/queue.json")
 
     # noinspection PyMethodParameters
     @field_validator(
@@ -153,6 +154,7 @@ class StorageSettings(BaseModel):
         "temp_dir",
         "task_status_records",
         "statistics_dir",
+        "queue_save_dir",
         mode="after",
     )
     def check_required_fields(cls, value):

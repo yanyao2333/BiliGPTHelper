@@ -8,3 +8,7 @@ class BilibiliBaseException(Exception):
 
 class RiskControlFindError(Exception):
     pass
+
+
+class LoadJsonError(Exception):
+    pass

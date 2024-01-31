@@ -47,13 +47,14 @@ class Summarize(BaseChain):
         uncomplete_task = []
         uncomplete_task += self.task_status_recorder.get_record_by_stage(
             chain=Chains.SUMMARIZE
-        )
+        )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            self.summarize_queue.put_nowait(task["data"])
-        _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
-        self.task_status_recorder.load_queue(self.summarize_queue, "summarize")
-        _LOGGER.info("正在将上次在队列中的视频加入队列")
-        self.task_status_recorder.delete_queue("summarize")
+            if task.process_stage != ProcessStages.END:
+                self.summarize_queue.put_nowait(task["data"])
+        # _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
+        # self.queue_manager.(self.summarize_queue, "summarize")
+        # _LOGGER.info("正在将上次在队列中的视频加入队列")
+        # self.task_status_recorder.delete_queue("summarize")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
