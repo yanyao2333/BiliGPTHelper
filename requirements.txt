@@ -1,4 +1,4 @@
-bilibili-api-python
+bilibili-api-dev
 loguru
 openai
 APScheduler
