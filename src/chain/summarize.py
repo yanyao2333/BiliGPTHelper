@@ -8,7 +8,7 @@ import tenacity
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
 from src.llm.templates import Templates
-from src.models.task import BiliGPTTask, Chains, ProcessStages
+from src.models.task import BiliGPTTask, Chains, ProcessStages, SummarizeAiResponse
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
@@ -49,8 +49,14 @@ class Summarize(BaseChain):
             chain=Chains.SUMMARIZE
         )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            if task.process_stage != ProcessStages.END:
-                self.summarize_queue.put_nowait(task["data"])
+            if task["process_stage"] != ProcessStages.END:
+                try:
+                    _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
+                    self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
+                except Exception:
+                    traceback.print_exc()
+                    # TODO 这里除了打印日志，是不是还应该记录在视频状态中？
+                    _LOGGER.error(f"在恢复uuid: {task['uuid']} 时出现错误！跳过恢复")
         # _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
         # self.queue_manager.(self.summarize_queue, "summarize")
         # _LOGGER.info("正在将上次在队列中的视频加入队列")
@@ -110,7 +116,9 @@ class Summarize(BaseChain):
                     _LOGGER.info(
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
-                    self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_LLM_RESPONSE)
+                    self.task_status_recorder.update_record(
+                        _item_uuid, new_task_data=task, process_stage=ProcessStages.WAITING_LLM_RESPONSE
+                    )
                     llm = self.llm_router.get_one()
                     if llm is None:
                         _LOGGER.warning("没有可用的LLM，关闭系统")
@@ -138,9 +146,9 @@ class Summarize(BaseChain):
                     self.now_tokens += tokens
                     _LOGGER.debug(f"llm输出内容为：{answer}")
                     _LOGGER.debug("调用llm成功，开始处理结果")
-                    task["item"]["ai_response"] = answer
-                    self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_SEND, data=task)
-
+                    task.process_result = answer
+                    task.process_stage = ProcessStages.WAITING_SEND.value
+                    self.task_status_recorder.update_record(_item_uuid, task)
                 if task.process_stage in (
                     ProcessStages.WAITING_SEND.value,
                     ProcessStages.WAITING_RETRY.value,
@@ -158,7 +166,8 @@ class Summarize(BaseChain):
                             if "true" in answer:
                                 answer.replace("true", "True")
                             resp = json.loads(answer)
-                            if resp["if_no_need_summary"] is True:
+                            task.process_result = SummarizeAiResponse.model_validate(resp)
+                            if task.process_result.if_no_need_summary is True:
                                 _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                                 await BiliSession.quick_send(
                                     self.credential,
@@ -173,12 +182,14 @@ class Summarize(BaseChain):
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
-                            await self.finish(task, resp)
+                            await self.finish(task)
 
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                             traceback.print_tb(e.__traceback__)
-                            self.task_status_recorder.update_record(_item_uuid, stage=ProcessStages.WAITING_RETRY)
+                            self.task_status_recorder.update_record(
+                                _item_uuid, new_task_data=task, process_stage=ProcessStages.WAITING_RETRY
+                            )
                             await self.retry(
                                 answer,
                                 task,
@@ -223,7 +234,8 @@ class Summarize(BaseChain):
         if answer:
             try:
                 resp = json.loads(answer)
-                if resp["if_no_need_summary"] is True:
+                task.process_result = SummarizeAiResponse.model_validate(resp)
+                if task.process_result.if_no_need_summary is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                     self._set_noneed_end(task.uuid)
                     return False
@@ -231,7 +243,7 @@ class Summarize(BaseChain):
                     _LOGGER.info(
                         f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                     )
-                    await self.finish(task, resp)
+                    await self.finish(task)
                     return True
             except Exception as e:
                 _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")

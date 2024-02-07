@@ -44,7 +44,7 @@ class LLMRouter:
             _asr = attr(self.config)
             setattr(self, _asr.alias, _asr)
             _LOGGER.info(f"正在加载 {_asr.alias}")
-            _config = self.config.model_dump()["LLMs"][_asr.alias]
+            _config = self.config.model_dump(mode="json")["LLMs"][_asr.alias]
             priority = _config["priority"]
             enabled = _config["enable"]
             if priority is None or enabled is None:

@@ -2,6 +2,7 @@ import asyncio
 
 import tenacity
 from bilibili_api import session
+from bilibili_api.session import EventType
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
@@ -32,7 +33,7 @@ class BiliSession:
             credential,
             # at_items["item"]["private_msg_event"]["text_event"]["sender_uid"],
             int(task.sender_id),
-            "1",
+            EventType.TEXT,
             msg,
         )
 
@@ -64,7 +65,7 @@ class BiliSession:
                         self.credential,
                         # data["item"]["private_msg_event"]["text_event"]["sender_uid"],
                         int(data.sender_id),
-                        "1",
+                        EventType.TEXT,
                         msg,
                     )
                     await asyncio.sleep(3)

@@ -1,5 +1,6 @@
 import enum
 import json
+from typing import Union
 
 from src.models.task import BiliGPTTask, Chains, ProcessStages
 from src.utils.exceptions import LoadJsonError
@@ -29,7 +30,7 @@ class TaskStatusRecorder:
         #     self.save()
         try:
             content = load_file(self.file_path)
-            if not content:
+            if content:
                 self.video_records = json.loads(content)
             else:
                 self.video_records = {}
@@ -47,7 +48,7 @@ class TaskStatusRecorder:
     def save(self):
         # with open(self.file_path, "w", encoding="utf-8") as f:
         #     json.dump(self.video_records, f, ensure_ascii=False, indent=4)
-        save_file(json.dumps(self.video_records), self.file_path)
+        save_file(json.dumps(self.video_records, ensure_ascii=False), self.file_path)
 
     def get_record_by_stage(
         self,
@@ -61,32 +62,36 @@ class TaskStatusRecorder:
         records = []
         if stage is None:
             for record in self.video_records.values():
-                if record["event"] == chain.value:
+                if record["chain"] == chain.value:
                     records.append(record)
             return records
         for record in self.video_records.values():
-            if record["stage"] == stage.value and record["event"] == chain.value:
+            if record["process_stage"] == stage.value and record["chain"] == chain.value:
                 records.append(record)
         return records
 
     def create_record(self, item: BiliGPTTask):
         """创建一条记录，返回一条uuid，可以根据uuid修改记录"""
-        self.video_records[item.uuid] = item.model_dump()
+        self.video_records[str(item.uuid)] = item.model_dump(mode="json")
+        # del self.video_records[item.uuid]["raw_task_data"]["video_event"]["content"]
         self.save()
         return item.uuid
 
-    def update_record(self, _uuid: str, **kwargs) -> bool:
+    def update_record(self, _uuid: str, new_task_data: Union[BiliGPTTask, None], **kwargs) -> bool:
         """根据uuid更新记录"""
-        record: BiliGPTTask = self.video_records[_uuid]
-        if not record:
+        # record: BiliGPTTask = self.video_records[_uuid]
+        if new_task_data is not None:
+            self.video_records[_uuid] = new_task_data.model_dump(mode="json")
+            # del self.video_records[_uuid]["raw_task_data"]["video_event"]["content"]
+        if self.video_records[_uuid] is None:
             return False
         for key, _value in kwargs.items():
             if isinstance(_value, enum.Enum):
                 _value = _value.value
             if key == "process_stage":
-                record["process_stage"] = _value
-            if key in record:
-                record[key] = _value
+                self.video_records[_uuid]["process_stage"] = _value
+            if key in self.video_records[_uuid]:
+                self.video_records[_uuid][key] = _value
             else:
                 _LOGGER.warning(f"尝试更新不存在的字段：{key}，跳过")
         self.save()

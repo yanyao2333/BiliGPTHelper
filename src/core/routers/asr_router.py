@@ -6,7 +6,7 @@ from typing import Optional
 from injector import inject
 
 from src.asr.asr_base import ASRBase
-from src.core.schedulers.llm_scheduler import LLMRouter
+from src.core.routers.llm_router import LLMRouter
 from src.models.config import Config
 from src.utils.logging import LOGGER
 
@@ -46,7 +46,7 @@ class ASRouter:
             _asr = attr(self.config, self.llm_router)
             setattr(self, _asr.alias, _asr)
             _LOGGER.info(f"正在加载 {_asr.alias}")
-            _config = self.config.model_dump()["ASRs"][_asr.alias]
+            _config = self.config.model_dump(mode="json")["ASRs"][_asr.alias]
             priority = _config["priority"]
             enabled = _config["enable"]
             if priority is None or enabled is None:

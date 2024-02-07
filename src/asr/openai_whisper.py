@@ -70,7 +70,8 @@ class OpenaiWhisper(ASRBase):
         _LOGGER.debug(f"正在识别{audio_path}")
         openai.api_key = self.config.ASRs.openai_whisper.api_key
         openai.api_base = self.config.ASRs.openai_whisper.api_base
-        response = openai.Audio.transcribe(model="whisper-1", file=open(audio_path, "rb"))
+        with open(audio_path, "rb") as audio:
+            response = openai.Audio.transcribe(model="whisper-1", file=audio)
 
         _LOGGER.debug(f"返回内容为{response}")
 

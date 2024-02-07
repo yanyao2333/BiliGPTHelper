@@ -5,7 +5,7 @@ import traceback
 from typing import Optional
 
 from src.asr.asr_base import ASRBase
-from src.core.schedulers.llm_scheduler import LLMRouter
+from src.core.routers.llm_router import LLMRouter
 from src.llm.templates import Templates
 from src.models.config import Config
 from src.utils.logging import LOGGER

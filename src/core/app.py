@@ -6,8 +6,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Module, provider, singleton
 
 from src.bilibili.bili_credential import BiliCredential
-from src.core.schedulers.asr_scheduler import ASRouter
-from src.core.schedulers.llm_scheduler import LLMRouter
+from src.core.routers.asr_router import ASRouter
+from src.core.routers.chain_router import ChainRouter
+from src.core.routers.llm_router import LLMRouter
 from src.models.config import Config
 from src.utils.cache import Cache
 from src.utils.exceptions import ConfigError
@@ -93,6 +94,13 @@ class BiliGPT(Module):
 
     @singleton
     @provider
+    def provide_chain_router(self, config: Config, queue_manager: QueueManager) -> ChainRouter:
+        _LOGGER.info("正在初始化Chain路由器")
+        router = ChainRouter(config, queue_manager)
+        return router
+
+    @singleton
+    @provider
     def provide_scheduler(self) -> AsyncIOScheduler:
         _LOGGER.info("正在初始化定时器")
         return AsyncIOScheduler(timezone="Asia/Shanghai")
@@ -106,3 +114,24 @@ class BiliGPT(Module):
     @provider
     def provide_stop_event(self) -> asyncio.Event:
         return asyncio.Event()
+
+    # @singleton
+    # @provider
+    # def provide_chains(
+    #     self,
+    #     queue_manager: QueueManager,
+    #     config: Config,
+    #     credential: BiliCredential,
+    #     cache: Cache,
+    #     asr_router: ASRouter,
+    #     task_status_recorder: TaskStatusRecorder,
+    #     stop_event: asyncio.Event,
+    #     llm_router: LLMRouter
+    # ) -> dict[str, BaseChain]:
+    #     """
+    #     如果增加了处理链，要在这里导入
+    #     :return:
+    #     """
+    #     _LOGGER.info("开始加载摘要处理链")
+    #     _summarize_chain = Summarize(queue_manager=queue_manager, config=config, credential=credential, cache=cache, asr_router=asr_router, task_status_recorder=task_status_recorder, stop_event=stop_event, llm_router=llm_router)
+    #     return {str(_summarize_chain): _summarize_chain}

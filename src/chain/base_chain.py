@@ -13,14 +13,13 @@ from injector import inject
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.core.schedulers.asr_scheduler import ASRouter
-from src.core.schedulers.llm_scheduler import LLMRouter
+from src.core.routers.asr_router import ASRouter
+from src.core.routers.llm_router import LLMRouter
 from src.models.config import Config
 from src.models.task import (
     BiliGPTTask,
     EndReasons,
     ProcessStages,
-    SummarizeAiResponse,
 )
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
@@ -75,6 +74,7 @@ class BaseChain:
         """当一个视频因为错误而结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
+            new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.ERROR,
             gmt_end=int(time.time()),
@@ -85,6 +85,7 @@ class BaseChain:
         """当一个视频正常结束时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
+            new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.NORMAL,
             gmt_end=int(time.time()),
@@ -94,6 +95,7 @@ class BaseChain:
         """当一个视频不需要处理时，调用此方法"""
         self.task_status_recorder.update_record(
             _uuid,
+            new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.NONEED,
             gmt_end=int(time.time()),
@@ -108,20 +110,14 @@ class BaseChain:
         """
         pass
 
-    async def finish(
-        self,
-        task: BiliGPTTask,
-        resp: dict,
-    ) -> bool:
+    async def finish(self, task: BiliGPTTask) -> bool:
         """
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
-        :param resp: ai的回复
         :param task:
         :return:
         """
         _LOGGER = self._LOGGER
         reply_data = copy.deepcopy(task)
-        reply_data.process_result = SummarizeAiResponse.model_validate(resp)
         if reply_data.source_type == "bili_private":
             _LOGGER.debug("该消息是私信消息，将结果放入私信处理队列")
             await self.private_queue.put(reply_data)
@@ -129,8 +125,10 @@ class BaseChain:
             _LOGGER.debug("正在将结果加入发送队列，等待回复")
             await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
-        self.task_status_recorder.update_record(reply_data.uuid, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE)
-        self.cache.set_cache(key=reply_data.video_id, value=reply_data)
+        self.task_status_recorder.update_record(
+            reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
+        )
+        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump())
         self._set_normal_end(task.uuid)
         return True
 
@@ -144,11 +142,11 @@ class BaseChain:
                 case "bili_private":
                     cache = self.cache.get_cache(key=video_info["bvid"])
                     task.process_result = cache
-                    await self.finish(task, cache)
+                    await self.finish(task)
                 case "bili_comment":
                     cache = self.cache.get_cache(key=video_info["bvid"])
                     task.process_result = cache
-                    await self.finish(task, cache)
+                    await self.finish(task)
             return True
         return False
 
@@ -261,7 +259,7 @@ class BaseChain:
             _LOGGER.warning(f"视频{format_video_name}没有字幕，开始使用asr转写，这可能会导致字幕质量下降")
             text = await self._get_subtitle_from_asr(video, _uuid)
             task.subtitle = text
-            self.task_status_recorder.update_record(_uuid, data=task, use_whisper=True)
+            self.task_status_recorder.update_record(_uuid, new_task_data=task, use_whisper=True)
             return text
         _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
         text = await self._get_subtitle_from_bilibili(video)
@@ -306,3 +304,6 @@ class BaseChain:
         因为llm的返回内容具有不稳定性，所以我强烈建议你实现这个函数。
         """
         pass
+
+    def __repr__(self):
+        return self.__class__.__name__

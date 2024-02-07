@@ -1,4 +1,4 @@
-bilibili-api-dev
+bilibili-api-python==16.2.0
 loguru
 openai
 APScheduler

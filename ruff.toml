@@ -14,7 +14,7 @@ select = [
     # isort
     "I",
 ]
-ignore = []  # 忽略的规则
+ignore = ["E501"]  # 忽略的规则
 
 [format]
 docstring-code-format = true

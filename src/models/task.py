@@ -136,7 +136,7 @@ class EndReasons(Enum):
     """视频处理结束原因"""
 
     NORMAL = "正常结束"  # 正常结束
-    ERROR = "视频在处理过程中出现致命的错误或多次重试失败，详细见具体的msg"  # 错误结束
+    ERROR = "视频在处理过程中出现致命错误或多次重试失败，详细见具体的msg"  # 错误结束
     NONEED = "AI认为该视频不需要被处理，可能是因为内容无意义"  # AI认为这个视频不需要处理
 
 
@@ -154,15 +154,9 @@ class BiliGPTTask(BaseModel):
     """单任务全生命周期的数据模型 用于替代其他所有的已有类型"""
 
     source_type: Annotated[
-        str,
-        StringConstraints(
-            strip_whitespace=True,
-            to_upper=True,
-            pattern=r"^(bili_comment|bili_private|api)$",
-        ),
-    ]  # type: ignore # 设置task的获取来源
+        str, StringConstraints(pattern=r"^(bili_comment|bili_private|api)$")]  # type: ignore # 设置task的获取来源
     raw_task_data: dict  # 原始的task数据，包含所有信息
-    sender_id: str  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
+    sender_id: int  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
     # video_title: str  # 视频标题
     video_url: str  # 视频链接
     video_id: str  # bvid
@@ -176,7 +170,7 @@ class BiliGPTTask(BaseModel):
         default=ProcessStages.PREPROCESS.value
     )  # 视频处理阶段（传入值应为value）
     chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链（传入值应为Chains.xxx.value）
-    uuid: Optional[UUID4] = Field(default=uuid.uuid4())  # 该任务的uuid4
+    uuid: Optional[UUID4] = Field(default=str(uuid.uuid4()))  # 该任务的uuid4
     gmt_create: int = Field(default=int(time.time()))  # 任务创建时间戳，默认为当前时间戳
     gmt_start_process: int = Field(default=0)  # 任务开始处理时间，不同于上方的gmt_create，这个是真正开始处理的时间
     gmt_retry_start: int = Field(default=0)  # 如果该任务被重试，就在开始重试时填写该属性

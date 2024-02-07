@@ -160,6 +160,7 @@ class BiliGPTPipeline:
 
 
 if __name__ == "__main__":
+    os.environ["DEBUG_MODE"] = "false"
     _LOGGER = LOGGER.bind(name="main")
     biligpt = BiliGPTPipeline()
     asyncio.run(biligpt.start())
