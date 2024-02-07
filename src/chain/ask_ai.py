@@ -8,18 +8,15 @@ import tenacity
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
 from src.llm.templates import Templates
-from src.models.task import BiliGPTTask, Chains, ProcessStages, SummarizeAiResponse
+from src.models.task import AskAIResponse, BiliGPTTask, Chains, ProcessStages
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
-_LOGGER = LOGGER.bind(name="summarize-chain")
+_LOGGER = LOGGER.bind(name="ask-ai-chain")
 
 
-class Summarize(BaseChain):
-    """摘要处理链"""
-
+class AskAI(BaseChain):
     async def _precheck(self, task: BiliGPTTask) -> bool:
-        """检查是否满足处理条件"""
         match task.source_type:
             case "bili_private":
                 _LOGGER.debug("该消息是私信消息，继续处理")
@@ -31,36 +28,7 @@ class Summarize(BaseChain):
             case "api":
                 _LOGGER.debug("该消息是api消息，继续处理")
                 return True
-        # if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
-        #     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
-        #     self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
-        #     return False
-        # if task["item"]["root_id"] != 0 or task["item"]["target_id"] != 0:
-        #     _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
-        #     self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
-        #     return False
         return False
-
-    async def _on_start(self):
-        """在启动处理链时先处理一下之前没有处理完的视频"""
-        _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
-        uncomplete_task = []
-        uncomplete_task += self.task_status_recorder.get_record_by_stage(
-            chain=Chains.SUMMARIZE
-        )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
-        for task in uncomplete_task:
-            if task["process_stage"] != ProcessStages.END:
-                try:
-                    _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
-                    self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
-                except Exception:
-                    traceback.print_exc()
-                    # TODO 这里除了打印日志，是不是还应该记录在视频状态中？
-                    _LOGGER.error(f"在恢复uuid: {task['uuid']} 时出现错误！跳过恢复")
-        # _LOGGER.info(f"之前未处理完的视频已经全部加入队列，共{len(uncomplete_task)}个")
-        # self.queue_manager.(self.summarize_queue, "summarize")
-        # _LOGGER.info("正在将上次在队列中的视频加入队列")
-        # self.task_status_recorder.delete_queue("summarize")
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -71,17 +39,10 @@ class Summarize(BaseChain):
         try:
             await self._on_start()
             while True:
-                # if self.max_tokens is not None and self.now_tokens >= self.max_tokens:
-                #     _LOGGER.warning(
-                #         f"当前已使用token数{self.now_tokens}，超过最大token数{self.max_tokens}，摘要处理链停止运行"
-                #     )
-                #     raise asyncio.CancelledError
-
-                # 从队列中获取摘要
-                task: BiliGPTTask = await self.summarize_queue.get()
+                task: BiliGPTTask = await self.ask_ai_queue.get()
                 _item_uuid = task.uuid
                 self._create_record(task)
-                _LOGGER.info(f"summarize处理链获取到任务了：{task.uuid}")
+                _LOGGER.info(f"ask_ai处理链获取到任务了：{task.uuid}")
                 # 检查是否满足处理条件
                 if task.process_stage == ProcessStages.END:
                     _LOGGER.info(f"任务{task.uuid}已经结束，获取下一个")
@@ -105,6 +66,7 @@ class Summarize(BaseChain):
                         ProcessStages.WAITING_LLM_RESPONSE,
                 ):
                     begin_time = time.perf_counter()
+                    # FIXME: 需要修改项目的cache实现，标注来自于哪个处理链，否则事有点大
                     if await self._is_cached_video(task, _item_uuid, video_info):
                         continue
                     # 处理视频音频流和字幕
@@ -130,13 +92,12 @@ class Summarize(BaseChain):
                         self.stop_event.set()
                         continue
                     prompt = llm.use_template(
-                        Templates.SUMMARIZE_USER,
-                        Templates.SUMMARIZE_SYSTEM,
+                        Templates.ASK_AI_USER,
+                        Templates.ASK_AI_SYSTEM,
                         title=video_info["title"],
-                        tags=video_tags_string,
-                        comments=video_comments,
                         subtitle=text,
                         description=video_info["desc"],
+                        question=task.command_params.question,
                     )
                     _LOGGER.debug("prompt生成成功，开始调用llm")
                     # 调用openai的Completion API
@@ -170,24 +131,11 @@ class Summarize(BaseChain):
                             if "true" in answer:
                                 answer.replace("true", "True")
                             resp = json.loads(answer)
-                            task.process_result = SummarizeAiResponse.model_validate(resp)
-                            if task.process_result.if_no_need_summary is True:
-                                _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
-                                await BiliSession.quick_send(
-                                    self.credential,
-                                    task,
-                                    "AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
-                                )
-                                # await BiliSession.quick_send(
-                                #     self.credential, task, answer
-                                # )
-                                self._set_noneed_end(_item_uuid)
-                                continue
+                            task.process_result = AskAIResponse.model_validate(resp)
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
                             )
                             await self.finish(task)
-
                         except Exception as e:
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                             traceback.print_tb(e.__traceback__)
@@ -202,7 +150,24 @@ class Summarize(BaseChain):
                                 video_info,
                             )
         except asyncio.CancelledError:
-            _LOGGER.info("收到关闭信号，摘要处理链关闭")
+            _LOGGER.info("收到关闭信号，ask_ai处理链关闭")
+
+    async def _on_start(self):
+        """在启动处理链时先处理一下之前没有处理完的视频"""
+        _LOGGER.info("正在启动摘要处理链，开始将上次未处理完的视频加入队列")
+        uncomplete_task = []
+        uncomplete_task += self.task_status_recorder.get_record_by_stage(
+            chain=Chains.ASK_AI
+        )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
+        for task in uncomplete_task:
+            if task["process_stage"] != ProcessStages.END:
+                try:
+                    _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
+                    self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
+                except Exception:
+                    traceback.print_exc()
+                    # TODO 这里除了打印日志，是不是还应该记录在视频状态中？
+                    _LOGGER.error(f"在恢复uuid: {task['uuid']} 时出现错误！跳过恢复")
 
     async def retry(self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info):
         """通过重试prompt让chatgpt重新构建json
@@ -214,47 +179,11 @@ class Summarize(BaseChain):
         :param video_info: 视频信息
         :return: None
         """
-        _LOGGER.debug(f"任务{task.uuid}：ai返回内容解析失败，正在尝试重试")
-        task.gmt_retry_start = int(time.time())
-        llm = self.llm_router.get_one()
-        if llm is None:
-            _LOGGER.warning("没有可用的LLM，关闭系统")
-            self._set_err_end(task.uuid, "没有可用的LLM，跳过处理")
-            self.stop_event.set()
-            return False
-        prompt = llm.use_template(Templates.RETRY, input=ai_answer)
-        response = await llm.completion(prompt)
-        if response is None:
-            _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
-            self._set_err_end(
-                task.uuid,
-                f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理",
-            )
-            self.llm_router.report_error(llm.alias)
-            return False
-        answer, tokens = response
-        _LOGGER.debug(f"openai api输出内容为：{answer}")
-        self.now_tokens += tokens
-        if answer:
-            try:
-                resp = json.loads(answer)
-                task.process_result = SummarizeAiResponse.model_validate(resp)
-                if task.process_result.if_no_need_summary is True:
-                    _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
-                    self._set_noneed_end(task.uuid)
-                    return False
-                else:
-                    # TODO 这种运行时间的显示存在很大问题，有空了统一一下，但现在我是没空了
-                    _LOGGER.info(
-                        f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
-                    )
-                    await self.finish(task)
-                    return True
-            except Exception as e:
-                _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
-                traceback.print_tb(e.__traceback__)
-                self._set_err_end(
-                    task.uuid,
-                    "重试后处理结果失败，大概是ai返回的格式不对，跳过",
-                )
-                return False
+        _LOGGER.error(
+            f"任务{task.uuid}：真不好意思！但是我ask_ai部分的retry还没写！所以只能先全给你设置成错误结束了嘿嘿嘿"
+        )
+        self._set_err_end(
+            task.uuid,
+            "重试代码未实现，跳过",
+        )
+        return False

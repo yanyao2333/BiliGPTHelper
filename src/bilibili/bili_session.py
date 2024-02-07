@@ -1,4 +1,5 @@
 import asyncio
+from typing import Union
 
 import tenacity
 from bilibili_api import session
@@ -7,7 +8,7 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.models.task import BiliGPTTask, SummarizeAiResponse
+from src.models.task import AskAIResponse, BiliGPTTask, SummarizeAiResponse
 from src.utils.callback import chain_callback
 from src.utils.logging import LOGGER
 
@@ -38,13 +39,20 @@ class BiliSession:
         )
 
     @staticmethod
-    def build_reply_content(response: SummarizeAiResponse) -> list:
+    def build_reply_content(response: Union[SummarizeAiResponse, AskAIResponse]) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
         # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
-        msg_list = [
-            f"【视频摘要】{response.summary}",
-            f"【视频评分】{response.score}分\n\n【咱还想说】{response.thinking}",
-        ]
+        # TODO 这种判断方式很不优雅，但现在是半夜十二点，我不想改了，我想睡觉了
+        if isinstance(response, SummarizeAiResponse):
+            msg_list = [
+                f"【视频摘要】{response.summary}",
+                f"【视频评分】{response.score}分\n\n【咱还想说】{response.thinking}",
+            ]
+        elif isinstance(response, AskAIResponse):
+            msg_list = [f"【回答】{response.answer}\n\n【自我评分】{response.score}分"]
+        else:
+            # 笨蛋ide，根本不会有不存在msg_list状况！逼我多写了两行
+            msg_list = []
         return msg_list
 
     @tenacity.retry(

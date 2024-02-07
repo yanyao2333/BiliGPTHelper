@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class BilibiliCookie(BaseModel):
+    # TODO 加上这行就跑不了了
+    # 防呆措施，避免有傻瓜把dedeuserid写成数字
+    # model_config = ConfigDict(coerce_numbers_to_str=True)  # type: ignore
+
     SESSDATA: str
     bili_jct: str
     buvid3: str
@@ -20,9 +24,10 @@ class BilibiliCookie(BaseModel):
 
 class ChainKeywords(BaseModel):
     summarize_keywords: list[str]
+    ask_ai_keywords: list[str]
 
     # noinspection PyMethodParameters
-    @field_validator("summarize_keywords", mode="after")
+    @field_validator("summarize_keywords", "ask_ai_keywords", mode="after")
     def check_keywords(cls, value):
         if not value or len(value) == 0:
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")

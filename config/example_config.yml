@@ -47,12 +47,16 @@ chain_keywords:
     - "总结一下"
     - "总结一下吧"
     - "总结一下吧！"
+  ask_ai_keywords:
+    - "问一下"
+    - "请问"
 
 
 storage_settings:
   cache_path: /data/cache.json # 用于缓存已经处理过的视频，如果更改要映射出来
   statistics_dir: /data/statistics # 用于存放统计数据，如果更改要映射出来
   task_status_records: /data/records.json # 用于记录任务状态，如果更改要映射出来，不能留空
+  queue_save_dir: /data/queue.json # 用于保存未完成的队列信息，下次运行时恢复
   temp_dir: /data/temp # 主要用于下载视频音频生成字幕，如果更改要映射出来
 
 debug_mode: true # 是否开启debug模式，开启后会打印更多日志，建议开启，以便于查找bug

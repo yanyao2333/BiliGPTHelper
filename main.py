@@ -11,6 +11,7 @@ from injector import Injector
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
+from src.chain.ask_ai import AskAI
 from src.chain.summarize import Summarize
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
@@ -90,6 +91,10 @@ class BiliGPTPipeline:
             _LOGGER.info("正在初始化摘要处理链")
             summarize_chain = _injector.get(Summarize)
 
+            # 初始化ask_ai处理链
+            _LOGGER.info("正在初始化ask_ai处理链")
+            ask_ai_chain = _injector.get(AskAI)
+
             # 启动侦听器
             _LOGGER.info("正在启动at侦听器")
             listen.start_listen_at()
@@ -103,9 +108,10 @@ class BiliGPTPipeline:
             _LOGGER.info("正在启动定时任务调度器")
             _injector.get(AsyncIOScheduler).start()
 
-            # 启动摘要处理链
-            _LOGGER.info("正在启动摘要处理链")
+            # 启动处理链
+            _LOGGER.info("正在启动处理链")
             summarize_task = asyncio.create_task(summarize_chain.main())
+            ask_ai_task = asyncio.create_task(ask_ai_chain.main())
 
             # 启动评论
             _LOGGER.info("正在启动评论处理链")
@@ -142,6 +148,7 @@ class BiliGPTPipeline:
                     )
                     _LOGGER.info("正在关闭所有的处理链")
                     summarize_task.cancel()
+                    ask_ai_task.cancel()
                     comment_task.cancel()
                     private_task.cancel()
                     # _LOGGER.info("正在生成本次运行的统计报告")
@@ -160,7 +167,7 @@ class BiliGPTPipeline:
 
 
 if __name__ == "__main__":
-    os.environ["DEBUG_MODE"] = "false"
+    os.environ["DEBUG_MODE"] = "true"
     _LOGGER = LOGGER.bind(name="main")
     biligpt = BiliGPTPipeline()
     asyncio.run(biligpt.start())

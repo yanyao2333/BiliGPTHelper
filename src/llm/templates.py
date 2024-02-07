@@ -22,7 +22,7 @@ V2_SUMMARIZE_SYSTEM_PROMPT = (
     "请一定使用此格式"
 )
 
-V3_SUMMARIZE_JSON_RESPONSE = '{"summary": "Replace with your summary content", "score": "Replace with the score you give to this video(0-100)", "thinking": "Replace with your thoughts", "if_no_need_summary": "Is a summary needed? Fill in the Boolean value"}'
+V3_SUMMARIZE_JSON_RESPONSE = '{"summary": "Your summary content", "score": "Score you give to this video(max 10)", "thinking": "Your thoughts", "if_no_need_summary": "Is a summary needed? Fill boolean"}'
 
 
 V3_SUMMARIZE_SYSTEM_PROMPT = (
@@ -33,9 +33,9 @@ V3_SUMMARIZE_SYSTEM_PROMPT = (
     "4. Ignore irrelevant tags/comments."
     "5. Break into paragraphs."
     "6. When you writing 'thinking' part, disregard the rules above and express your independent thought, including your own radical opinions, rather than the video's content.The score is based on this video.If you think you create a meaningful summary, give yourself a high score."
-    "8. Provide content in Chinese, following JSON format, please use double quotes. If the video is meaningless, set 'if_no_need_summary' true, others blank."
-    f"{V3_SUMMARIZE_JSON_RESPONSE}"
-    """Use like this: {"summary": "...","score": "90","thinking": "...","if_no_need_summary": false} or {"summary": "","score: "","thinking": "","if_no_need_summary": true}."""
+    "7. If the video is meaningless, set 'if_no_need_summary' true, others blank."
+    "8. Only pure JSON content with double quotes is allowed!Please use Chinese!"
+    f"JSON format: {V3_SUMMARIZE_JSON_RESPONSE}"
 )
 
 SUMMARIZE_USER_TEMPLATE = "标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"
@@ -54,9 +54,24 @@ V2_RETRY_TEMPLATE = f"Please translate the following text into this JSON format 
 
 V2_AFTER_PROCESS_SUBTITLE = "Below are the subtitles obtained through speech-to-text. You need to correct any grammatical errors, noun mistakes, and convert Traditional Chinese to Simplified Chinese if present:\n\n[subtitle]"
 
+V1_ASK_AI_USER = "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nQuestion: [question]"
+
+V1_ASK_AI_JSON_RESPONSE = '{"answer": "your answer", "score": "your self-assessed quality rating of the answer"}'
+
+V1_ASK_AI_SYSTEM = (
+    "You are a professional video Q&A teacher. "
+    "I will provide you with the video title, description, and subtitles. "
+    """Based on this information and your expertise, 
+    respond to the user's questions in a lively and humorous manner, 
+    using metaphors and examples when necessary."""
+    f"\n\nPlease reply in the following JSON format: {V1_ASK_AI_JSON_RESPONSE}\n\nOnly pure JSON content with double quotes is allowed!Please use Chinese!"
+)
+
 
 class Templates(Enum):
     SUMMARIZE_USER = V2_SUMMARIZE_USER_TEMPLATE
     SUMMARIZE_SYSTEM = V3_SUMMARIZE_SYSTEM_PROMPT
     RETRY = V2_RETRY_TEMPLATE
     AFTER_PROCESS_SUBTITLE = V2_AFTER_PROCESS_SUBTITLE
+    ASK_AI_USER = V1_ASK_AI_USER
+    ASK_AI_SYSTEM = V1_ASK_AI_SYSTEM

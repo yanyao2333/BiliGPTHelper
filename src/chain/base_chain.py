@@ -69,6 +69,7 @@ class BaseChain:
         self.summarize_queue = self.queue_manager.get_queue("summarize")
         self.reply_queue = self.queue_manager.get_queue("reply")
         self.private_queue = self.queue_manager.get_queue("private")
+        self.ask_ai_queue = self.queue_manager.get_queue("ask_ai")
 
     def _set_err_end(self, _uuid: str, msg: str):
         """当一个视频因为错误而结束时，调用此方法"""

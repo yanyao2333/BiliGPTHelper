@@ -96,7 +96,7 @@ class Listen:
             event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event)
             event["sender_id"] = event["user"]["mid"]
             event["video_url"] = event["uri"]
-            event["source_extra_text"] = event["source_content"]
+            event["source_command"] = event["source_content"]
             event["video_id"] = await BiliVideo(url=event["uri"]).bvid
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
@@ -129,7 +129,7 @@ class Listen:
             event["raw_task_data"]["video_event"]["content"] = video.get_bvid()
             event["sender_id"] = event["video_event"]["sender_uid"]
             event["video_url"] = uri
-            event["source_extra_text"] = event["text_event"]["content"]
+            event["source_command"] = event["text_event"]["content"]
             event["video_id"] = video.get_bvid()
             del event["video_event"]
             del event["text_event"]
