@@ -80,6 +80,7 @@ class TaskStatusRecorder:
     def update_record(self, _uuid: str, new_task_data: Union[BiliGPTTask, None], **kwargs) -> bool:
         """根据uuid更新记录"""
         # record: BiliGPTTask = self.video_records[_uuid]
+        _uuid = str(_uuid)
         if new_task_data is not None:
             self.video_records[_uuid] = new_task_data.model_dump(mode="json")
             # del self.video_records[_uuid]["raw_task_data"]["video_event"]["content"]
