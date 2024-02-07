@@ -51,7 +51,7 @@ class Cache:
         # except Exception as e:
         #     _LOGGER.error(f"保存缓存失败：{e}")
         #     traceback.print_exc()
-        save_file(json.dumps(self.cache, ensure_ascii=False), self.cache_path)
+        save_file(json.dumps(self.cache, ensure_ascii=False, indent=4), self.cache_path)
 
     def get_cache(self, key: str):
         """获取缓存"""
