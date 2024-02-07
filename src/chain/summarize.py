@@ -116,6 +116,7 @@ class Summarize(BaseChain):
                         text = await self._smart_get_subtitle(video, _item_uuid, format_video_name, task)
                         if text is None:
                             continue
+                        task.subtitle = text
                     _LOGGER.info(
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
@@ -125,7 +126,7 @@ class Summarize(BaseChain):
                     llm = self.llm_router.get_one()
                     if llm is None:
                         _LOGGER.warning("没有可用的LLM，关闭系统")
-                        self._set_err_end(_item_uuid, "没有可用的LLM，跳过处理")
+                        self._set_err_end(_item_uuid, "没有可用的LLM，被迫结束处理")
                         self.stop_event.set()
                         continue
                     prompt = llm.use_template(
