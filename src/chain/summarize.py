@@ -81,7 +81,7 @@ class Summarize(BaseChain):
                 task: BiliGPTTask = await self.summarize_queue.get()
                 _item_uuid = task.uuid
                 self._create_record(task)
-                _LOGGER.info(f"摘要处理链获取到任务了：{task.uuid}")
+                _LOGGER.info(f"summarize处理链获取到任务了：{task.uuid}")
                 # 检查是否满足处理条件
                 if task.process_stage == ProcessStages.END:
                     _LOGGER.info(f"任务{task.uuid}已经结束，获取下一个")
@@ -151,7 +151,7 @@ class Summarize(BaseChain):
                     _LOGGER.debug(f"llm输出内容为：{answer}")
                     _LOGGER.debug("调用llm成功，开始处理结果")
                     task.process_result = answer
-                    task.process_stage = ProcessStages.WAITING_SEND.value
+                    task.process_stage = ProcessStages.WAITING_SEND
                     self.task_status_recorder.update_record(_item_uuid, task)
                 if task.process_stage in (
                         ProcessStages.WAITING_SEND,
