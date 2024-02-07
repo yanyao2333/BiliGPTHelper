@@ -48,7 +48,7 @@ class TaskStatusRecorder:
     def save(self):
         # with open(self.file_path, "w", encoding="utf-8") as f:
         #     json.dump(self.video_records, f, ensure_ascii=False, indent=4)
-        save_file(json.dumps(self.video_records, ensure_ascii=False), self.file_path)
+        save_file(json.dumps(self.video_records, ensure_ascii=False, indent=4), self.file_path)
 
     def get_record_by_stage(
         self,
