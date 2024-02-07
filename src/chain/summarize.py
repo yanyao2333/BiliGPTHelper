@@ -39,7 +39,7 @@ class Summarize(BaseChain):
         #     _LOGGER.warning(f"该消息是楼中楼消息，暂时不受支持，跳过处理")  # TODO 楼中楼消息的处理
         #     self._set_err_end(_uuid, "该消息是楼中楼消息，暂时不受支持，跳过处理")
         #     return False
-        return True
+        return False
 
     async def _on_start(self):
         """在启动处理链时先处理一下之前没有处理完的视频"""
