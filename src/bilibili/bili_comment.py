@@ -106,7 +106,7 @@ class BiliComment:
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        return f"【视频摘要】{response['summary']}\n\n【视频评分】{response['score']}\n\n【咱还想说】{response['thinking']}"
+        return f"【视频摘要】{response.summary}\n\n【视频评分】{response.score}\n\n【咱还想说】{response.thinking}"
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
