@@ -29,7 +29,7 @@ class Listen:
         # value_manager: GlobalVariablesManager,
         config: Config,
         schedule: AsyncIOScheduler,
-            chain_router: ChainRouter,
+        chain_router: ChainRouter,
     ):
         self.sess = None
         self.credential = credential

@@ -45,7 +45,7 @@ class OpenaiWhisper(ASRBase):
 
             if start_time + segment_length < len(audio):
                 _LOGGER.debug(f"正在处理{start_time}到{start_time+segment_length}的音频")
-                segment = segment + audio[start_time + segment_length: start_time + segment_length + window_length]
+                segment = segment + audio[start_time + segment_length : start_time + segment_length + window_length]
 
             output_segments.append(segment)
             start_time += segment_length

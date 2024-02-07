@@ -62,8 +62,8 @@ class AskAI(BaseChain):
                     video_comments,
                 ) = resp
                 if task.process_stage in (
-                        ProcessStages.PREPROCESS,
-                        ProcessStages.WAITING_LLM_RESPONSE,
+                    ProcessStages.PREPROCESS,
+                    ProcessStages.WAITING_LLM_RESPONSE,
                 ):
                     begin_time = time.perf_counter()
                     # FIXME: 需要修改项目的cache实现，标注来自于哪个处理链，否则事有点大
@@ -115,8 +115,8 @@ class AskAI(BaseChain):
                     task.process_stage = ProcessStages.WAITING_SEND
                     self.task_status_recorder.update_record(_item_uuid, task)
                 if task.process_stage in (
-                        ProcessStages.WAITING_SEND,
-                        ProcessStages.WAITING_RETRY,
+                    ProcessStages.WAITING_SEND,
+                    ProcessStages.WAITING_RETRY,
                 ):
                     begin_time = time.perf_counter()
                     answer = task.process_result
