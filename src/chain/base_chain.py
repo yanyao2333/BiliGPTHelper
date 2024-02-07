@@ -266,7 +266,7 @@ class BaseChain:
         return text
 
     def _create_record(self, task: BiliGPTTask) -> str:
-        """创建一条任务记录，返回uuid"""
+        """创建（或查询）一条任务记录，返回uuid"""
         task.gmt_start_process = int(time.time())
         _item_uuid = self.task_status_recorder.create_record(task)
         return _item_uuid

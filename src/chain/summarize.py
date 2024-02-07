@@ -81,8 +81,11 @@ class Summarize(BaseChain):
                 task: BiliGPTTask = await self.summarize_queue.get()
                 _item_uuid = task.uuid
                 self._create_record(task)
-                _LOGGER.info(f"摘要处理链获取到任务了：{task.video_url}")
+                _LOGGER.info(f"摘要处理链获取到任务了：{task.uuid}")
                 # 检查是否满足处理条件
+                if task.process_stage == ProcessStages.END:
+                    _LOGGER.info(f"任务{task.uuid}已经结束，获取下一个")
+                    continue
                 if not await self._precheck(task):
                     continue
                 # 获取视频相关信息
@@ -98,8 +101,8 @@ class Summarize(BaseChain):
                     video_comments,
                 ) = resp
                 if task.process_stage in (
-                    ProcessStages.PREPROCESS.value,
-                    ProcessStages.WAITING_LLM_RESPONSE.value,
+                        ProcessStages.PREPROCESS,
+                        ProcessStages.WAITING_LLM_RESPONSE,
                 ):
                     begin_time = time.perf_counter()
                     if await self._is_cached_video(task, _item_uuid, video_info):
@@ -150,8 +153,8 @@ class Summarize(BaseChain):
                     task.process_stage = ProcessStages.WAITING_SEND.value
                     self.task_status_recorder.update_record(_item_uuid, task)
                 if task.process_stage in (
-                    ProcessStages.WAITING_SEND.value,
-                    ProcessStages.WAITING_RETRY.value,
+                        ProcessStages.WAITING_SEND,
+                        ProcessStages.WAITING_RETRY,
                 ):
                     begin_time = time.perf_counter()
                     answer = task.process_result
@@ -159,7 +162,7 @@ class Summarize(BaseChain):
                     # 处理结果
                     if answer:
                         try:
-                            if task.process_stage == ProcessStages.WAITING_RETRY.value:
+                            if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
                             if "false" in answer:
                                 answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
