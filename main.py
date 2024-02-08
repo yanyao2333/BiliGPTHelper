@@ -26,7 +26,7 @@ class BiliGPTPipeline:
 
     def __init__(self):
         _LOGGER.info("正在启动BiliGPTHelper")
-        with open("VERSION", "r", encoding="utf-8") as ver:
+        with open("VERSION", encoding="utf-8") as ver:
             version = ver.read()
         _LOGGER.info(f"当前运行版本：V{version}")
         signal.signal(signal.SIGINT, BiliGPTPipeline.stop_handler)

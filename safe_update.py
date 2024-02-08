@@ -8,6 +8,7 @@ from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="safe-update")
 
+
 def merge_cache_to_new_version(cache_file_path: str) -> bool:
     """迁移老缓存文件到新版本格式"""
     content = read_file(cache_file_path)
@@ -20,7 +21,10 @@ def merge_cache_to_new_version(cache_file_path: str) -> bool:
                 _LOGGER.debug(f"备份老版缓存到{cache_file_path}.bak")
                 shutil.copy(cache_file_path, cache_file_path + ".bak")
                 new_summarize_dict = copy.deepcopy(content_dict)
-                new_content_dict = {"summarize": new_summarize_dict, "ask_ai": {}} # 老版本缓存只存在于只有summarize处理链的时代，直接这样转换
+                new_content_dict = {
+                    "summarize": new_summarize_dict,
+                    "ask_ai": {},
+                }  # 老版本缓存只存在于只有summarize处理链的时代，直接这样转换
                 save_file(json.dumps(new_content_dict, ensure_ascii=False, indent=4), cache_file_path)
                 _LOGGER.info("转换缓存完成！")
                 return True
