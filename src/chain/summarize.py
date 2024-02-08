@@ -166,9 +166,9 @@ class Summarize(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
                             if "false" in answer:
-                                answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
+                                answer = answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
                             if "true" in answer:
-                                answer.replace("true", "True")
+                                answer = answer.replace("true", "True")
                             resp = json.loads(answer)
                             task.process_result = SummarizeAiResponse.model_validate(resp)
                             if task.process_result.if_no_need_summary is True:
