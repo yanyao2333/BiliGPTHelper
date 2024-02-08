@@ -160,10 +160,10 @@ class AskAI(BaseChain):
             chain=Chains.ASK_AI
         )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            if task["process_stage"] != ProcessStages.END:
+            if task["process_stage"] != ProcessStages.END.value:
                 try:
                     _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
-                    self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
+                    self.ask_ai_queue.put_nowait(BiliGPTTask.model_validate(task))
                 except Exception:
                     traceback.print_exc()
                     # TODO 这里除了打印日志，是不是还应该记录在视频状态中？

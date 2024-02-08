@@ -177,4 +177,4 @@ if __name__ == "__main__":
     os.environ["DEBUG_MODE"] = "true"
     _LOGGER = LOGGER.bind(name="main")
     biligpt = BiliGPTPipeline()
-    # asyncio.run(biligpt.start())
+    asyncio.run(biligpt.start())

@@ -138,7 +138,7 @@ class BaseChain:
         self.task_status_recorder.update_record(
             reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
-        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain))
+        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain.value))
         self._set_normal_end(task.uuid)
         return True
 
@@ -146,15 +146,15 @@ class BaseChain:
         """检查是否是缓存的视频
         如果是缓存的视频，直接从缓存中获取结果并发送
         """
-        if self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain)):
+        if self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value)):
             LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
             match task.source_type:
                 case "bili_private":
-                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain))
+                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value))
                     task.process_result = cache
                     await self.finish(task)
                 case "bili_comment":
-                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain))
+                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value))
                     task.process_result = cache
                     await self.finish(task)
             return True

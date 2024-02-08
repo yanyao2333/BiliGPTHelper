@@ -50,13 +50,13 @@ V2_SUMMARIZE_USER_TEMPLATE = (
     "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nTags: [tags]\n\nComments: [comments]"
 )
 
-V2_RETRY_TEMPLATE = f"Please translate the following text into this JSON format and return it to me without adding anything else. If the 'summary' field does not exist, set 'if_no_need_summary' to true. If fields other than 'summary' are missing, they can be ignored and left blank, and 'if_no_need_summary' remains false\n\nStandard JSON format: {V3_SUMMARIZE_JSON_RESPONSE}\n\nMy content: [input]"
+V2_SUMMARIZE_RETRY_TEMPLATE = f"Please translate the following text into this JSON format and return it to me without adding anything else. If the 'summary' field does not exist, set 'if_no_need_summary' to true. If fields other than 'summary' are missing, they can be ignored and left blank, and 'if_no_need_summary' remains false\n\nStandard JSON format: {V3_SUMMARIZE_JSON_RESPONSE}\n\nMy content: [input]"
 
 V2_AFTER_PROCESS_SUBTITLE = "Below are the subtitles obtained through speech-to-text. You need to correct any grammatical errors, noun mistakes, and convert Traditional Chinese to Simplified Chinese if present:\n\n[subtitle]"
 
 V1_ASK_AI_USER = "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nQuestion: [question]"
 
-V1_ASK_AI_JSON_RESPONSE = '{"answer": "your answer", "score": "your self-assessed quality rating of the answer"}'
+V1_ASK_AI_JSON_RESPONSE = '{"answer": "your answer", "score": "your self-assessed quality rating of the answer(0-10)"}'
 
 V1_ASK_AI_SYSTEM = (
     "You are a professional video Q&A teacher. "
@@ -64,14 +64,16 @@ V1_ASK_AI_SYSTEM = (
     """Based on this information and your expertise, 
     respond to the user's questions in a lively and humorous manner, 
     using metaphors and examples when necessary."""
-    f"\n\nPlease reply in the following JSON format: {V1_ASK_AI_JSON_RESPONSE}\n\nOnly pure JSON content with double quotes is allowed!Please use Chinese!"
+    f"\n\nPlease reply in the following JSON format: {V1_ASK_AI_JSON_RESPONSE}\n\n"
+    "!!!Only pure JSON content with double quotes is allowed!Please use Chinese!Dont add any other things!!!"
 )
 
 
 class Templates(Enum):
     SUMMARIZE_USER = V2_SUMMARIZE_USER_TEMPLATE
     SUMMARIZE_SYSTEM = V3_SUMMARIZE_SYSTEM_PROMPT
-    RETRY = V2_RETRY_TEMPLATE
+    SUMMARIZE_RETRY = V2_SUMMARIZE_RETRY_TEMPLATE
     AFTER_PROCESS_SUBTITLE = V2_AFTER_PROCESS_SUBTITLE
-    ASK_AI_USER = V1_ASK_AI_USER
-    ASK_AI_SYSTEM = V1_ASK_AI_SYSTEM
+    ASK_AI_USER = V1_ASK_AI_USER + "\n\n" + V1_ASK_AI_SYSTEM
+    # ASK_AI_SYSTEM = V1_ASK_AI_SYSTEM
+    ASK_AI_SYSTEM = ""

@@ -49,7 +49,7 @@ class Summarize(BaseChain):
             chain=Chains.SUMMARIZE
         )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            if task["process_stage"] != ProcessStages.END:
+            if task["process_stage"] != ProcessStages.END.value:
                 try:
                     _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
                     self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
@@ -222,7 +222,7 @@ class Summarize(BaseChain):
             self._set_err_end(task.uuid, "没有可用的LLM，跳过处理")
             self.stop_event.set()
             return False
-        prompt = llm.use_template(Templates.RETRY, input=ai_answer)
+        prompt = llm.use_template(Templates.SUMMARIZE_RETRY, input=ai_answer)
         response = await llm.completion(prompt)
         if response is None:
             _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")

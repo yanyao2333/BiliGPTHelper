@@ -2,7 +2,7 @@
 import time
 import uuid
 from enum import Enum
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Union
 
 from pydantic import UUID4, BaseModel, Field, StringConstraints
 
@@ -86,7 +86,7 @@ class BiliGPTTask(BaseModel):
     source_command: str  # 用户发送的原始指令（eg. "总结一下" "问一下：xxxxxxx"）
     command_params: Optional[AskAICommandParams] = None  # 用户原始指令经解析后的参数
     source_extra_attr: Optional[BiliAtSpecialAttributes] = None  # 在获取到task时附加的其他原始参数（比如评论id等）
-    process_result: Optional[SummarizeAiResponse | str] = None  # 最终处理结果，根据不同的处理链会有不同的结果
+    process_result: Optional[Union[SummarizeAiResponse, AskAIResponse, str]] = None  # 最终处理结果，根据不同的处理链会有不同的结果
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
     process_stage: Optional[ProcessStages] = Field(default=ProcessStages.PREPROCESS.value)  # 视频处理阶段
     chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链
