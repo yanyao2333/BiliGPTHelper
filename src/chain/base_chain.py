@@ -138,7 +138,9 @@ class BaseChain:
         self.task_status_recorder.update_record(
             reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
-        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain.value))
+        self.cache.set_cache(
+            key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain.value)
+        )
         self._set_normal_end(task.uuid)
         return True
 
@@ -160,7 +162,9 @@ class BaseChain:
             return True
         return False
 
-    async def _get_video_info(self, task: BiliGPTTask, if_get_comments: bool = True) -> Optional[tuple[BiliVideo, dict, str, str, Optional[str]]]:
+    async def _get_video_info(
+        self, task: BiliGPTTask, if_get_comments: bool = True
+    ) -> Optional[tuple[BiliVideo, dict, str, str, Optional[str]]]:
         """获取视频的一些信息
         :param task: 任务对象
         :param if_get_comments: 是否获取评论，为假就返回空
@@ -189,7 +193,9 @@ class BaseChain:
         video_tags_string = " ".join(f"#{tag['tag_name']}" for tag in await video.get_video_tags())
         _LOGGER.debug("视频标签获取成功，开始获取视频评论")
         # 获取视频评论
-        video_comments = await BiliComment.get_random_comment(video_info["aid"], self.credential) if if_get_comments else None
+        video_comments = (
+            await BiliComment.get_random_comment(video_info["aid"], self.credential) if if_get_comments else None
+        )
         return video, video_info, format_video_name, video_tags_string, video_comments
 
     async def _get_subtitle_from_bilibili(self, video: BiliVideo) -> str:
