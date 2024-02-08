@@ -50,10 +50,7 @@ class OpenaiWhisper(ASRBase):
             output_segments.append(segment)
             start_time += segment_length
 
-        num = 0
-
-        for segment in output_segments:
-            num += 1
+        for num, segment in enumerate(output_segments):
             with open(f"{temp}/{_uuid}_segment_{num}.mp3", "wb") as file:
                 segment.export(file, format="mp3")
             _LOGGER.debug(f"第{num}个切片导出完成")
