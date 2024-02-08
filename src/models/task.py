@@ -4,7 +4,7 @@ import uuid
 from enum import Enum
 from typing import Annotated, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class SummarizeAiResponse(BaseModel):
@@ -92,7 +92,7 @@ class BiliGPTTask(BaseModel):
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
     process_stage: Optional[ProcessStages] = Field(default=ProcessStages.PREPROCESS.value)  # 视频处理阶段
     chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链
-    uuid: Optional[UUID4] = Field(default=str(uuid.uuid4()))  # 该任务的uuid4
+    uuid: Optional[str] = Field(default=str(uuid.uuid4()))  # 该任务的uuid4
     gmt_create: int = Field(default=int(time.time()))  # 任务创建时间戳，默认为当前时间戳
     gmt_start_process: int = Field(default=0)  # 任务开始处理时间，不同于上方的gmt_create，这个是真正开始处理的时间
     gmt_retry_start: int = Field(default=0)  # 如果该任务被重试，就在开始重试时填写该属性

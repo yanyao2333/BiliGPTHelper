@@ -24,7 +24,7 @@ class ChainRouter:
         self.ask_ai_queue = self.queue_manager.get_queue("ask_ai")
 
     async def dispatch_a_task(self, task: BiliGPTTask):
-        content = task.source_command
+        content: str = task.source_command
         _LOGGER.info(f"开始处理消息，原始消息内容为：{content}")
         summarize_keyword = self.config.chain_keywords.summarize_keywords
         ask_ai_keyword = self.config.chain_keywords.ask_ai_keywords

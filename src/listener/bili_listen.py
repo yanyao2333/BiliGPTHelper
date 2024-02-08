@@ -1,5 +1,6 @@
 """监听bilibili平台的私信、at消息"""
 import os
+import re
 import time
 import traceback
 from copy import deepcopy
@@ -121,16 +122,15 @@ class Listen:
     async def build_task_from_private_msg(self, msg: dict) -> BiliGPTTask | None:
         try:
             event = deepcopy(msg)
-            video = event["video_event"]["content"]
-
-            uri = "https://bilibili.com/video/" + video.get_bvid()
+            bvid = event["video_event"]["content"]
+            uri = "https://bilibili.com/video/" + bvid
             event["source_type"] = "bili_private"
             event["raw_task_data"] = deepcopy(msg)
-            event["raw_task_data"]["video_event"]["content"] = video.get_bvid()
-            event["sender_id"] = event["video_event"]["sender_uid"]
+            event["raw_task_data"]["video_event"]["content"] = bvid
+            event["sender_id"] = event["text_event"]["sender_uid"]
             event["video_url"] = uri
-            event["source_command"] = event["text_event"]["content"]
-            event["video_id"] = video.get_bvid()
+            event["source_command"] = event["text_event"]["content"][12:]  # 去除掉bv号
+            event["video_id"] = bvid
             del event["video_event"]
             del event["text_event"]
             del event["status"]
@@ -148,9 +148,11 @@ class Listen:
             case "idle" | "waiting_for_keyword":
                 _session["status"] = "waiting_for_keyword"
                 _session["video_event"] = event
+                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
 
             case "waiting_for_video":
                 _session["video_event"] = event
+                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
                 at_items = await self.build_task_from_private_msg(_session)
                 if at_items is None:
                     return
@@ -174,29 +176,31 @@ class Listen:
 
         match "BV" in event["content"]:
             case True:
-                _LOGGER.debug("检测到消息中包含BV号，开始解析")
-                try:
-                    p1, p2 = event["content"].split(" ")  # 简单分离一下关键词与链接
-                except Exception as e:
-                    _LOGGER.error(f"分离关键词与链接失败：{e}，返回")
+                _LOGGER.debug("检测到消息中包含BV号，开始提取")
+                # try:
+                #     p1, p2 = event["content"].split(" ")  # 简单分离一下关键词与链接
+                # except Exception as e:
+                #     _LOGGER.error(f"分离关键词与链接失败：{e}，返回")
+                #     return
+                #
+                # if "BV" in p1:
+                #     bvid = p1
+                #     keyword = p2
+                # else:
+                #     bvid = p2
+                #     keyword = p1
+                bvid = event["content"][:12]
+                if not re.search("^BV[a-zA-Z0-9]{10}$", bvid):
+                    _LOGGER.warning(f"从消息‘{event['content']}’中提取bv号失败！你是不是没把bv号放在消息最前面？！")
                     return
-
-                if "BV" in p1:
-                    bvid = p1
-                    keyword = p2
-                else:
-                    bvid = p2
-                    keyword = p1
-                video = BiliVideo(bvid)
-                if _session.status in (
+                if _session["status"] in (
                     "waiting_for_keyword",
                     "idle",
                     "waiting_for_video",
                 ):
-                    _session.video_event = deepcopy(event)
-                    _session.video_event.content = video
+                    _session["video_event"] = {}
+                    _session["video_event"]["content"] = bvid
                     _session["text_event"] = deepcopy(event)
-                    _session["text_event"]["content"] = keyword
                     task_metadata = await self.build_task_from_private_msg(_session)
                     if task_metadata is None:
                         return

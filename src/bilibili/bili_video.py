@@ -36,7 +36,7 @@ class BiliVideo:
             self.video_obj, _type = await parse_link(self.url, credential=self.credential)
         elif self.aid:
             self.video_obj = video.Video(aid=self.aid, credential=self.credential)
-        elif self.bvid:
+        elif self._bvid:
             self.video_obj = video.Video(bvid=self._bvid, credential=self.credential)
         else:
             raise ValueError("缺少必要参数")
