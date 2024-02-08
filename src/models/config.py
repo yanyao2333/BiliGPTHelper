@@ -1,12 +1,11 @@
 import os
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class BilibiliCookie(BaseModel):
-    # TODO 加上这行就跑不了了
     # 防呆措施，避免有傻瓜把dedeuserid写成数字
-    # model_config = ConfigDict(coerce_numbers_to_str=True)  # type: ignore
+    model_config = ConfigDict(coerce_numbers_to_str=True)  # type: ignore
 
     SESSDATA: str
     bili_jct: str
@@ -15,7 +14,7 @@ class BilibiliCookie(BaseModel):
     ac_time_value: str
 
     # noinspection PyMethodParameters
-    @field_validator("SESSDATA", "bili_jct", "buvid3", "dedeuserid", "ac_time_value", mode="after")
+    @field_validator("*", mode="after")
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
@@ -27,7 +26,7 @@ class ChainKeywords(BaseModel):
     ask_ai_keywords: list[str]
 
     # noinspection PyMethodParameters
-    @field_validator("summarize_keywords", "ask_ai_keywords", mode="after")
+    @field_validator("*", mode="after")
     def check_keywords(cls, value):
         if not value or len(value) == 0:
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
@@ -42,7 +41,7 @@ class Openai(BaseModel):
     api_base: str = Field(default="https://api.openai.com/v1")
 
     # noinspection PyMethodParameters
-    @field_validator("api_key", "model", mode="after")
+    @field_validator("*", mode="after")
     def check_required_fields(cls, value, values):
         if values.data.get("enable") is False:
             return value
@@ -59,7 +58,7 @@ class AiproxyClaude(BaseModel):
     api_base: str = Field(default="https://api.aiproxy.io/")
 
     # noinspection PyMethodParameters
-    @field_validator("api_key", mode="after")
+    @field_validator("*", mode="after")
     def check_required_fields(cls, value, values):
         if values.data.get("enable") is False:
             return value
@@ -112,7 +111,7 @@ class LocalWhisper(BaseModel):
     priority: int = 60
     model_size: str = "tiny"
     device: str = "cpu"
-    model_dir: str = Field(default_factory=lambda: os.getenv("WHISPER_MODELS_DIR", "/data/whisper-models"))
+    model_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_WHISPER_MODELS_DIR"), validate_default=True)
     after_process: bool = False
 
     # noinspection PyMethodParameters
@@ -128,7 +127,7 @@ class LocalWhisper(BaseModel):
                 raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
             if os.getenv("RUNNING_IN_DOCKER") == "yes":
                 cls.device = "cpu"
-            if os.getenv("ENABLE_WHISPER", "yes") == "yes":
+            if os.getenv("ENABLE_WHISPER") == "yes":
                 cls.enable = True
             else:
                 cls.enable = False
@@ -141,21 +140,14 @@ class ASRs(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    cache_path: str = Field(default_factory=lambda: os.getenv("CACHE_FILE", "/data/cache.json"))
-    temp_dir: str = Field(default_factory=lambda: os.getenv("TEMP_DIR", "/data/temp"))
-    task_status_records: str = Field(default="/data/records.json")
-    statistics_dir: str = Field(default="/data/statistics")
-    queue_save_dir: str = Field(default="/data/queue.json")
+    cache_path: str = Field(default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True)
+    temp_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True)
+    task_status_records: str = Field(default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True)
+    statistics_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_STATISTICS_DIR"), validate_default=True)
+    queue_save_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True)
 
     # noinspection PyMethodParameters
-    @field_validator(
-        "cache_path",
-        "temp_dir",
-        "task_status_records",
-        "statistics_dir",
-        "queue_save_dir",
-        mode="after",
-    )
+    @field_validator("*", mode="after")
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
             raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
@@ -170,4 +162,4 @@ class Config(BaseModel):
     LLMs: LLMs
     ASRs: ASRs
     storage_settings: StorageSettings
-    debug_mode: bool = False
+    debug_mode: bool = True

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 
 import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -36,12 +37,23 @@ class BiliGPT(Module):
     @singleton
     @provider
     def provide_config_obj(self) -> Config:
-        with open(os.getenv("CONFIG_FILE", "config.yml"), encoding="utf-8") as f:
+        with open(os.getenv("DOCKER_CONFIG_FILE", "config.yml"), encoding="utf-8") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
         try:
             # _LOGGER.debug(config)
-            config = Config(**config)
+            config = Config.model_validate(config)
         except Exception as e:
+            _LOGGER.error(f"配置文件格式错误：{e}  可能是因为项目更新、配置文件添加了新字段")
+            shutil.copy(
+                os.getenv("DOCKER_CONFIG_FILE", "config.yml"), os.getenv("DOCKER_CONFIG_FILE", "config.yml") + ".bak"
+            )
+            if os.getenv("RUNNING_IN_DOCKER") == "yes":
+                shutil.copy("./config/docker_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config.yml"))
+            else:
+                shutil.copy("./config/example_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config.yml"))
+            _LOGGER.error(
+                f"已复制最新配置文件模板到原配置文件目录  并备份原配置文件到‘{os.getenv('DOCKER_CONFIG_FILE', 'config.yml')}.bak’   下面将打印详细错误日志"
+            )
             raise ConfigError(f"配置文件格式错误：{e}") from e
         return config
 

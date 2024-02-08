@@ -26,6 +26,9 @@ class BiliGPTPipeline:
 
     def __init__(self):
         _LOGGER.info("正在启动BiliGPTHelper")
+        with open("VERSION", "r", encoding="utf-8") as ver:
+            version = ver.read()
+        _LOGGER.info(f"当前运行版本：V{version}")
         signal.signal(signal.SIGINT, BiliGPTPipeline.stop_handler)
         signal.signal(signal.SIGTERM, BiliGPTPipeline.stop_handler)
 
@@ -66,12 +69,14 @@ class BiliGPTPipeline:
         self.injector = Injector(BiliGPT)
 
         BiliGPTPipeline.stop_event = self.injector.get(asyncio.Event)
+        _LOGGER.debug("初始化配置文件")
         config = self.injector.get(Config)
 
         if config.debug_mode is False:
             LOGGER.remove()
             LOGGER.add(sys.stdout, level="INFO")
 
+        _LOGGER.debug("尝试更新用户数据，符合新版本结构（这只是个提示，每次运行都会显示，其他地方不报错就别管了）")
         self.update_sth(config)
 
     def update_sth(self, config: Config):
