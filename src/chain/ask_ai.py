@@ -51,7 +51,7 @@ class AskAI(BaseChain):
                     continue
                 # 获取视频相关信息
                 # data = self.task_status_recorder.get_data_by_uuid(_item_uuid)
-                resp = await self._get_video_info(task)
+                resp = await self._get_video_info(task, if_get_comments=False)
                 if resp is None:
                     continue
                 (

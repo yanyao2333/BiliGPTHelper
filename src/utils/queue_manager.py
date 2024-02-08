@@ -4,7 +4,7 @@ import traceback
 from copy import deepcopy
 
 from src.models.task import BiliGPTTask
-from src.utils.file_tools import load_file, save_file
+from src.utils.file_tools import read_file, save_file
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER
@@ -30,7 +30,7 @@ class QueueManager:
 
     def _load(self, file_path: str):
         try:
-            content = load_file(file_path)
+            content = read_file(file_path)
             if not content:
                 self.saved_queue = json.loads(content)
             else:

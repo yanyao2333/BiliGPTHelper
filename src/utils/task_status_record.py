@@ -4,7 +4,7 @@ from typing import Union
 
 from src.models.task import BiliGPTTask, Chains, ProcessStages
 from src.utils.exceptions import LoadJsonError
-from src.utils.file_tools import load_file, save_file
+from src.utils.file_tools import read_file, save_file
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="task-status-record")
@@ -29,7 +29,7 @@ class TaskStatusRecorder:
         #     self.video_records = {}
         #     self.save()
         try:
-            content = load_file(self.file_path)
+            content = read_file(self.file_path)
             if content:
                 self.video_records = json.loads(content)
             else:

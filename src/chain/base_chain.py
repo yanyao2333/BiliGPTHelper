@@ -119,17 +119,26 @@ class BaseChain:
         """
         _LOGGER = self._LOGGER
         reply_data = copy.deepcopy(task)
-        if reply_data.source_type == "bili_private":
-            _LOGGER.debug("该消息是私信消息，将结果放入私信处理队列")
-            await self.private_queue.put(reply_data)
-        elif reply_data.source_type == "bili_comment":
-            _LOGGER.debug("正在将结果加入发送队列，等待回复")
-            await self.reply_queue.put(reply_data)
+        # if reply_data.source_type == "bili_private":
+        #     _LOGGER.debug("该消息是私信消息，将结果放入私信处理队列")
+        #     await self.private_queue.put(reply_data)
+        # elif reply_data.source_type == "bili_comment":
+        #     _LOGGER.debug("正在将结果加入发送队列，等待回复")
+        #     await self.reply_queue.put(reply_data)
+        match reply_data.source_type:
+            case "bili_private":
+                _LOGGER.debug(f"任务{task.uuid}:私信消息，将结果放入私信处理队列")
+                await self.private_queue.put(reply_data)
+            case "bili_comment":
+                _LOGGER.debug(f"任务{task.uuid}:评论消息，将结果放入评论处理队列")
+                await self.reply_queue.put(reply_data)
+            case "api":
+                _LOGGER.warning(f"任务{task.uuid}:api获取的消息，未实现处理逻辑")
         _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
             reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
-        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump())
+        self.cache.set_cache(key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain))
         self._set_normal_end(task.uuid)
         return True
 
@@ -137,22 +146,24 @@ class BaseChain:
         """检查是否是缓存的视频
         如果是缓存的视频，直接从缓存中获取结果并发送
         """
-        if self.cache.get_cache(key=video_info["bvid"]):
+        if self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain)):
             LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
             match task.source_type:
                 case "bili_private":
-                    cache = self.cache.get_cache(key=video_info["bvid"])
+                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain))
                     task.process_result = cache
                     await self.finish(task)
                 case "bili_comment":
-                    cache = self.cache.get_cache(key=video_info["bvid"])
+                    cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain))
                     task.process_result = cache
                     await self.finish(task)
             return True
         return False
 
-    async def _get_video_info(self, task: BiliGPTTask) -> Optional[tuple[BiliVideo, dict, str, str, str]]:
+    async def _get_video_info(self, task: BiliGPTTask, if_get_comments: bool = True) -> Optional[tuple[BiliVideo, dict, str, str, Optional[str]]]:
         """获取视频的一些信息
+        :param task: 任务对象
+        :param if_get_comments: 是否获取评论，为假就返回空
 
         :return 视频正常返回元组(video, video_info, format_video_name, video_tags_string, video_comments)
 
@@ -171,14 +182,14 @@ class BaseChain:
         format_video_name = f"『{video_info['title']}』"
         # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
         if len(video_info["pages"]) > 1:
-            _LOGGER.info(f"视频{format_video_name}分P，跳过处理")
+            _LOGGER.warning(f"任务{task.uuid}: 视频{format_video_name}分P，跳过处理")
             self._set_err_end(task.uuid, "视频分P，跳过处理")
             return None
         # 获取视频标签
         video_tags_string = " ".join(f"#{tag['tag_name']}" for tag in await video.get_video_tags())
         _LOGGER.debug("视频标签获取成功，开始获取视频评论")
         # 获取视频评论
-        video_comments = await BiliComment.get_random_comment(video_info["aid"], self.credential)
+        video_comments = await BiliComment.get_random_comment(video_info["aid"], self.credential) if if_get_comments else None
         return video, video_info, format_video_name, video_tags_string, video_comments
 
     async def _get_subtitle_from_bilibili(self, video: BiliVideo) -> str:
