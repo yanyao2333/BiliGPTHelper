@@ -8,6 +8,7 @@ import traceback
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Injector
 
+from safe_update import merge_cache_to_new_version
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_session import BiliSession
@@ -70,6 +71,12 @@ class BiliGPTPipeline:
         if config.debug_mode is False:
             LOGGER.remove()
             LOGGER.add(sys.stdout, level="INFO")
+
+        self.update_sth(config)
+
+    def update_sth(self, config: Config):
+        """升级后进行配置文件、运行数据的转换"""
+        merge_cache_to_new_version(config.storage_settings.cache_path)
 
     @staticmethod
     def stop_handler(_, __):
@@ -170,4 +177,4 @@ if __name__ == "__main__":
     os.environ["DEBUG_MODE"] = "true"
     _LOGGER = LOGGER.bind(name="main")
     biligpt = BiliGPTPipeline()
-    asyncio.run(biligpt.start())
+    # asyncio.run(biligpt.start())

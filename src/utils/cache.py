@@ -2,7 +2,7 @@
 import json
 
 from src.utils.exceptions import LoadJsonError
-from src.utils.file_tools import load_file, save_file
+from src.utils.file_tools import read_file, save_file
 from src.utils.logging import LOGGER
 
 _LOGGER = LOGGER.bind(name="cache")
@@ -34,7 +34,7 @@ class Cache:
         #     _LOGGER.info("已重新创建缓存文件")
         #     self.load_cache()
         try:
-            content = load_file(self.cache_path)
+            content = read_file(self.cache_path)
             if content:
                 self.cache = json.loads(content)
             else:
@@ -53,13 +53,13 @@ class Cache:
         #     traceback.print_exc()
         save_file(json.dumps(self.cache, ensure_ascii=False, indent=4), self.cache_path)
 
-    def get_cache(self, key: str):
+    def get_cache(self, key: str, chain: str):
         """获取缓存"""
-        return self.cache.get(key)
+        return self.cache.get(chain, {}).get(key)
 
-    def set_cache(self, key: str, value):
+    def set_cache(self, key: str, value, chain: str):
         """设置缓存"""
-        self.cache[key] = value
+        self.cache[chain][key] = value
         self.save_cache()
 
     def delete_cache(self, key: str):

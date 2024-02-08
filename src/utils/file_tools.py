@@ -6,7 +6,7 @@ from src.utils.logging import LOGGER
 _LOGGER = LOGGER
 
 
-def load_file(file_path: str, mode: str = "r", encoding: str = "utf-8"):
+def read_file(file_path: str, mode: str = "r", encoding: str = "utf-8"):
     """
     读取一个文件，如果不存在就创建这个文件及其所有中间路径
     :param encoding: utf-8
