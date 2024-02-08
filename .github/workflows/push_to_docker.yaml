@@ -32,6 +32,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:with_whisper
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}_whisper
           target: with_whisper
+          file: ./ci/Dockerfile
 
       - name: Build and push without whisper
         uses: docker/build-push-action@v5
@@ -41,3 +42,4 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}
           target: without_whisper
+          file: ./ci/Dockerfile
