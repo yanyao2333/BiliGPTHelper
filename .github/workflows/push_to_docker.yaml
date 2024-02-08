@@ -1,9 +1,12 @@
-name: push_to_docker
+name: release_docker
+run-name: Release V${{ github.event.inputs.version }} docker image
 
 on:
-  push:
-    tags:
-      - build_docker_*
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本'
+        required: true
 
 jobs:
   docker:
@@ -11,22 +14,30 @@ jobs:
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push with whisper
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: yanyaobbb/bilibili_gpt_helper:with_whisper
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:with_whisper
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}_whisper
           target: with_whisper
+
       - name: Build and push without whisper
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: yanyaobbb/bilibili_gpt_helper:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}
           target: without_whisper
