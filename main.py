@@ -5,6 +5,7 @@ import signal
 import sys
 import traceback
 
+from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from injector import Injector
 
@@ -17,6 +18,7 @@ from src.chain.summarize import Summarize
 from src.core.app import BiliGPT
 from src.listener.bili_listen import Listen
 from src.models.config import Config
+from src.utils.callback import scheduler_error_callback
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
 
@@ -119,6 +121,7 @@ class BiliGPTPipeline:
             # 启动定时任务调度器
             _LOGGER.info("正在启动定时任务调度器")
             _injector.get(AsyncIOScheduler).start()
+            _injector.get(AsyncIOScheduler).add_listener(scheduler_error_callback, EVENT_JOB_ERROR)
 
             # 启动处理链
             _LOGGER.info("正在启动处理链")
