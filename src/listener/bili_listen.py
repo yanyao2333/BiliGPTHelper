@@ -69,7 +69,7 @@ class Listen:
         for item in reversed(data["items"]):
             if item["at_time"] > self.last_at_time:
                 _LOGGER.debug(f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列")
-                item["user"] = data["items"]["user"]
+                # item["user"] = data["items"]["user"]
                 new_items.append(item)
         if len(new_items) == 0:
             _LOGGER.debug("没有新消息，返回")
@@ -86,19 +86,19 @@ class Listen:
     async def build_task_from_at_msg(self, msg: dict) -> BiliGPTTask | None:
         try:
             event = deepcopy(msg)
-            if msg["type"] != "reply" or msg["business_id"] != 1:
+            if msg["item"]["type"] != "reply" or msg["item"]["business_id"] != 1:
                 _LOGGER.warning("不是回复消息，跳过")
                 return None
-            elif msg["item"]["root_id"] == 0 and msg["item"]["target_id"] == 0:
+            elif msg["item"]["root_id"] != 0 or msg["item"]["target_id"] != 0:
                 _LOGGER.warning("该消息是楼中楼消息，暂时不受支持，跳过处理")
                 return None
             event["source_type"] = "bili_comment"
             event["raw_task_data"] = deepcopy(msg)
-            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event)
-            event["sender_id"] = event["user"]["mid"]
-            event["video_url"] = event["uri"]
-            event["source_command"] = event["source_content"]
-            event["video_id"] = await BiliVideo(url=event["uri"]).bvid
+            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event["item"])
+            event["sender_id"] = str(event["user"]["mid"])
+            event["video_url"] = event["item"]["uri"]
+            event["source_command"] = event["item"]["source_content"]
+            event["video_id"] = await BiliVideo(credential=self.credential, url=event["item"]["uri"]).bvid
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
             traceback.print_exc()
