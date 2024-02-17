@@ -1,0 +1,16 @@
+# 用于构建docker版本，不包含whisper，whisper在构建时会自行加上
+bilibili-api-python==16.2.0
+loguru
+openai
+APScheduler
+pytest
+httpx
+tenacity
+PyYAML
+ffmpeg-python
+# matplotlib
+injector
+pydantic
+anthropic
+ruamel.yaml
+pydub
