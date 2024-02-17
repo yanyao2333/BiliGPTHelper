@@ -1,6 +1,7 @@
 bilibili-api-python==16.2.0
 loguru
 openai
+openai-whisper
 APScheduler
 pytest
 httpx
