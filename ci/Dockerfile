@@ -2,7 +2,7 @@ FROM python:3.11-slim-buster as base
 
 WORKDIR /usr/src/app
 
-COPY ../requirements.txt ./
+COPY ../requirements-docker.txt ./
 
 RUN mkdir -p /clone-data/temp /clone-data/whisper-models /clone-data/statistics \
     && touch /clone-data/cache.json && touch /clone-data/records.json && touch /clone-data/queue.json
@@ -11,7 +11,7 @@ RUN apt-get update \
 #    && apt-get install -y  ffmpeg fonts-wqy-zenhei \
     && apt-get install -y ffmpeg  \
     && apt-get clean \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements-docker.txt
 
 COPY .. ./
 COPY ../config/docker_config.yml /clone-data/config.yml

@@ -64,7 +64,7 @@ class BiliAtSpecialAttributes(BaseModel):
     source_id: int  # 该评论的id，对应send_comment中的root（如果要回复的话）
     target_id: int  # 上一级评论id， 二级评论指向的就是root_id，三级评论指向的是二级评论的id
     root_id: int  # 暂时还没出现过
-    native_url: str  # 评论链接，包含根评论id和父评论id
+    native_uri: str  # 评论链接，包含根评论id和父评论id
     at_details: List[dict]  # at的人的信息，常规的个人信息dict
 
 

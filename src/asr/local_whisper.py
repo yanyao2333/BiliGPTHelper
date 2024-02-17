@@ -32,7 +32,7 @@ class LocalWhisper(ASRBase):
 
         self.model = whi.load_model(
             self.config.ASRs.local_whisper.model_size,
-            self.config.ASRs.local_whisperdevice,
+            self.config.ASRs.local_whisper.device,
             download_root=self.config.ASRs.local_whisper.model_dir,
         )
         _LOGGER.info("加载whisper模型成功")
