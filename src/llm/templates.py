@@ -22,7 +22,7 @@ V2_SUMMARIZE_SYSTEM_PROMPT = (
     "请一定使用此格式"
 )
 
-V3_SUMMARIZE_JSON_RESPONSE = '{"summary": "Your summary content", "score": "Score you give to this video(max 10)", "thinking": "Your thoughts", "if_no_need_summary": "Is a summary needed? Fill boolean"}'
+V3_SUMMARIZE_JSON_RESPONSE = '{"summary": "Your summary content", "score": "Score you give to this video(max 100)", "thinking": "Your thoughts", "if_no_need_summary": "Is a summary needed? Fill boolean"}'
 
 
 V3_SUMMARIZE_SYSTEM_PROMPT = (
@@ -56,7 +56,7 @@ V2_AFTER_PROCESS_SUBTITLE = "Below are the subtitles obtained through speech-to-
 
 V1_ASK_AI_USER = "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nQuestion: [question]"
 
-V1_ASK_AI_JSON_RESPONSE = '{"answer": "your answer", "score": "your self-assessed quality rating of the answer(0-10)"}'
+V1_ASK_AI_JSON_RESPONSE = '{"answer": "your answer", "score": "your self-assessed quality rating of the answer(0-100)"}'
 
 V1_ASK_AI_SYSTEM = (
     "You are a professional video Q&A teacher. "
