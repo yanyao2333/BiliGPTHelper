@@ -49,7 +49,7 @@ class Summarize(BaseChain):
             chain=Chains.SUMMARIZE
         )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            if task["process_stage"] != ProcessStages.END.value:
+            if task["process_stage"] != ProcessStages.END:
                 try:
                     _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
                     self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
