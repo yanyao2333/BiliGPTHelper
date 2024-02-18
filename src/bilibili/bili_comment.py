@@ -99,14 +99,14 @@ class BiliComment:
         return comment_str
 
     @staticmethod
-    def build_reply_content(response: SummarizeAiResponse) -> str:
+    def build_reply_content(response: SummarizeAiResponse, user: str) -> str:
         """
         构建回复内容
 
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        return f"【视频摘要】{response.summary}\n\n【视频评分】{response.score}\n\n【咱还想说】{response.thinking}"
+        return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【此次评论由 @{user} 邀请回答】"
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -131,14 +131,14 @@ class BiliComment:
                     if str(aid).startswith("av"):
                         aid = aid[2:]
                     oid = int(aid)
-                    root = data.source_extra_attr.source_id
-                    text = BiliComment.build_reply_content(data.process_result)
+                    # root = data.source_extra_attr.source_id
+                    user = data.raw_task_data['user']['nickname']
+                    text = BiliComment.build_reply_content(data.process_result, user)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,
                         text=text,
                         type_=comment.CommentResourceType.VIDEO,
-                        root=root,
                     )
                     if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
                         _LOGGER.debug(resp)
