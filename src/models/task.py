@@ -90,7 +90,7 @@ class BiliGPTTask(BaseModel):
         Union[SummarizeAiResponse, AskAIResponse, str]
     ] = None  # 最终处理结果，根据不同的处理链会有不同的结果
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
-    process_stage: Optional[ProcessStages] = Field(default=ProcessStages.PREPROCESS.value)  # 视频处理阶段
+    process_stage: Optional[ProcessStages] = Field(default=ProcessStages.PREPROCESS)  # 视频处理阶段
     chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链
     uuid: Optional[str] = Field(default=str(uuid.uuid4()))  # 该任务的uuid4
     gmt_create: int = Field(default=int(time.time()))  # 任务创建时间戳，默认为当前时间戳
