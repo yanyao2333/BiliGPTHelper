@@ -4,6 +4,7 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-311/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![wakatime](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82.svg)](https://wakatime.com/badge/user/41ab10cc-ec82-41e9-8417-9dcf5a9b5947/project/cef4699c-8d07-4cf0-9d0a-ef83fb353b82)
+[![release_docker](https://github.com/yanyao2333/BiliGPTHelper/actions/workflows/push_to_docker.yaml/badge.svg)](https://github.com/yanyao2333/BiliGPTHelper/actions/workflows/push_to_docker.yaml)
 
 ### 🌟 介绍
 
