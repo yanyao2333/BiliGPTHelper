@@ -30,8 +30,6 @@ jobs:
           else
             echo "::set-output name=version::${{ github.event.inputs.version }}"
           fi
-        env:
-          VERSION: ${{ env.VERSION }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -50,7 +48,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:with_whisper
-            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.read_version.outputs.version }}_whisper
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.set_version.outputs.version }}_whisper
           target: with_whisper
           file: ./ci/Dockerfile
 
@@ -60,6 +58,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.read_version.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.set_version.outputs.version }}
           target: without_whisper
           file: ./ci/Dockerfile
