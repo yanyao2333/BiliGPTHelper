@@ -32,9 +32,6 @@ class BiliGPT(Module):
             # _LOGGER.debug(config)
             config = Config.model_validate(config)
         except Exception as e:
-            _LOGGER.error(
-                f"配置文件格式错误：{e}  可能是因为项目更新、配置文件添加了新字段，请自行检查配置文件格式并更新配置文件"
-            )
             # shutil.copy(
             #     os.getenv("DOCKER_CONFIG_FILE", "config.yml"), os.getenv("DOCKER_CONFIG_FILE", "config.yml") + ".bak"
             # )
@@ -48,7 +45,7 @@ class BiliGPT(Module):
             # }
             # yaml.dump(Config().model_dump(mode="python"))
             _LOGGER.error(
-                f"已复制最新配置文件模板到 ‘{os.getenv('DOCKER_CONFIG_FILE', 'config.yml')}’ 下面将打印详细错误日志"
+                f"配置文件格式错误 可能是因为项目更新、配置文件添加了新字段，请自行检查配置文件格式并更新配置文件 已复制最新配置文件模板到 config_template.yml 下面将打印详细错误日志"
             )
             raise ConfigError(f"配置文件格式错误：{e}") from e
         return config
