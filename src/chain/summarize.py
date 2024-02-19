@@ -165,11 +165,14 @@ class Summarize(BaseChain):
                         try:
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
-                            if "false" in answer:
-                                answer = answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
-                            if "true" in answer:
-                                answer = answer.replace("true", "True")
+                                
+                            if "False" in answer:
+                                answer = answer.replace("False", "false")  # 解决一部分因为大小写问题导致的json解析失败
+                            if "True" in answer:
+                                answer = answer.replace("True", "true")
+                                
                             resp = json.loads(answer)
+                            resp['score'] = str(resp['score'])  # 预防返回的值类型为int,强转成str
                             task.process_result = SummarizeAiResponse.model_validate(resp)
                             if task.process_result.if_no_need_summary is True:
                                 _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
