@@ -81,7 +81,7 @@ class Spark(BaseModel):
     appid: str
     api_key: str
     api_secret: str
-    spark_url: str = Field(default="wss://spark-api.xf-yun.com/v3.5/chat") # 默认3.5版本
+    spark_url: str = Field(default="wss://spark-api.xf-yun.com/v3.5/chat")  # 默认3.5版本
     domain: str = Field(default="generalv3.5")  # 默认3.5
 
     @field_validator("*", mode="after")

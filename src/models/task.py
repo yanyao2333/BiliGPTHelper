@@ -24,13 +24,17 @@ class SummarizeAiResponse(BaseModel):
         # 星火是真的蠢，返回的if_no_need_summary是字符串
         match values.data.get("if_no_need_summary"):
             case "否":
-                values.data["if_no_need_summary"] = False
+                cls.if_no_need_summary = False
             case "是":
-                values.data["if_no_need_summary"] = True
+                cls.if_no_need_summary = True
             case "yes":
-                values.data["if_no_need_summary"] = True
+                cls.if_no_need_summary = True
             case "no":
-                values.data["if_no_need_summary"] = False
+                cls.if_no_need_summary = False
+            case "false":
+                cls.if_no_need_summary = False
+            case "true":
+                cls.if_no_need_summary = True
         return value
 
 
