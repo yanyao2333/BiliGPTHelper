@@ -61,7 +61,7 @@ class Cache:
         """设置缓存"""
         if chain not in self.cache:
             self.cache[chain] = {}
-            
+
         self.cache[chain][key] = value
         self.save_cache()
 

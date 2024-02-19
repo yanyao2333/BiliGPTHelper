@@ -132,7 +132,7 @@ class BiliComment:
                         aid = aid[2:]
                     oid = int(aid)
                     # root = data.source_extra_attr.source_id
-                    user = data.raw_task_data['user']['nickname']
+                    user = data.raw_task_data["user"]["nickname"]
                     text = BiliComment.build_reply_content(data.process_result, user)
                     resp = await comment.send_comment(
                         oid=oid,

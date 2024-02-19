@@ -1,6 +1,5 @@
 import abc
 import asyncio
-import copy
 import os
 import time
 from typing import Optional
@@ -111,14 +110,15 @@ class BaseChain:
         """
         pass
 
-    async def finish(self, task: BiliGPTTask) -> bool:
+    async def finish(self, task: BiliGPTTask, use_cache: bool = False) -> bool:
         """
         结束一项任务，将消息放入队列、设置缓存、更新任务状态
         :param task:
+        :param use_cache: 是否直接使用缓存而非正常处理
         :return:
         """
         _LOGGER = self._LOGGER
-        reply_data = copy.deepcopy(task)
+        reply_data = task
         # if reply_data.source_type == "bili_private":
         #     _LOGGER.debug("该消息是私信消息，将结果放入私信处理队列")
         #     await self.private_queue.put(reply_data)
@@ -138,6 +138,9 @@ class BaseChain:
         self.task_status_recorder.update_record(
             reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
+        if use_cache:
+            self._set_normal_end(task.uuid)
+            return True
         self.cache.set_cache(
             key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain.value)
         )
@@ -154,11 +157,11 @@ class BaseChain:
                 case "bili_private":
                     cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value))
                     task.process_result = cache
-                    await self.finish(task)
+                    await self.finish(task, True)
                 case "bili_comment":
                     cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value))
                     task.process_result = cache
-                    await self.finish(task)
+                    await self.finish(task, True)
             return True
         return False
 
