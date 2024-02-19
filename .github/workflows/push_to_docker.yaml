@@ -1,17 +1,37 @@
 name: release_docker
-run-name: Release V${{ github.event.inputs.version }} docker image
+run-name: Release Docker Image
 
 on:
   workflow_dispatch:
     inputs:
       version:
         description: '版本'
-        required: true
+        required: false
+  push:
+    paths:
+      - 'VERSION'
 
 jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Read version from VERSION file
+        id: file_version
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
+
+      - name: Set version
+        id: set_version
+        run: |
+          if [ "${{ github.event.inputs.version }}" == "" ]; then
+            echo "::set-output name=version::$VERSION"
+          else
+            echo "::set-output name=version::${{ github.event.inputs.version }}"
+          fi
+        env:
+          VERSION: ${{ env.VERSION }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -30,7 +50,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:with_whisper
-            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}_whisper
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.read_version.outputs.version }}_whisper
           target: with_whisper
           file: ./ci/Dockerfile
 
@@ -40,6 +60,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ github.event.inputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/bilibili_gpt_helper:${{ steps.read_version.outputs.version }}
           target: without_whisper
           file: ./ci/Dockerfile
