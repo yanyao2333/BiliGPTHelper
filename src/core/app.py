@@ -20,17 +20,6 @@ from src.utils.task_status_record import TaskStatusRecorder
 _LOGGER = LOGGER.bind(name="app")
 
 
-def flatten_dict(d):
-    items = {}
-    for k, v in d.items():
-        k = k.replace("-", "_")
-        if isinstance(v, dict):
-            items.update(flatten_dict(v))
-        else:
-            items[k] = v
-    return items
-
-
 class BiliGPT(Module):
     """BiliGPTHelper应用，储存所有的单例对象"""
 
@@ -43,16 +32,23 @@ class BiliGPT(Module):
             # _LOGGER.debug(config)
             config = Config.model_validate(config)
         except Exception as e:
-            _LOGGER.error(f"配置文件格式错误：{e}  可能是因为项目更新、配置文件添加了新字段")
-            shutil.copy(
-                os.getenv("DOCKER_CONFIG_FILE", "config.yml"), os.getenv("DOCKER_CONFIG_FILE", "config.yml") + ".bak"
-            )
-            if os.getenv("RUNNING_IN_DOCKER") == "yes":
-                shutil.copy("./config/docker_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config.yml"))
-            else:
-                shutil.copy("./config/example_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config.yml"))
             _LOGGER.error(
-                f"已复制最新配置文件模板到原配置文件目录  并备份原配置文件到‘{os.getenv('DOCKER_CONFIG_FILE', 'config.yml')}.bak’   下面将打印详细错误日志"
+                f"配置文件格式错误：{e}  可能是因为项目更新、配置文件添加了新字段，请自行检查配置文件格式并更新配置文件"
+            )
+            # shutil.copy(
+            #     os.getenv("DOCKER_CONFIG_FILE", "config.yml"), os.getenv("DOCKER_CONFIG_FILE", "config.yml") + ".bak"
+            # )
+            if os.getenv("RUNNING_IN_DOCKER") == "yes":
+                shutil.copy("./config/docker_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"))
+            else:
+                shutil.copy("./config/example_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"))
+            # {
+            #     field_name: (field.field_info.default if not field.required else "")
+            #     for field_name, field in Config.model_fields.items()
+            # }
+            # yaml.dump(Config().model_dump(mode="python"))
+            _LOGGER.error(
+                f"已复制最新配置文件模板到 ‘{os.getenv('DOCKER_CONFIG_FILE', 'config.yml')}’ 下面将打印详细错误日志"
             )
             raise ConfigError(f"配置文件格式错误：{e}") from e
         return config

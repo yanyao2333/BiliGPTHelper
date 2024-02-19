@@ -32,6 +32,15 @@ LLMs:
     api_key: '' # 你的claude api key
     model: claude-instant-1 # 选择模型，claude-instant-1或claude-2
 
+  spark: # 对接讯飞星火
+    enable: true # 是否启用讯飞星火
+    priority: 100 # 优先级，数字越大优先级越高，程序在选择时会更倾向于选择优先级高的
+    spark_url: wss://spark-api.xf-yun.com/v3.5/chat # 你的spark api base url（多数在使用第三方api供应商时会有）
+    appid: '' # 你的appid
+    api_key: '' # 你的api_key
+    api_secret: '' # 你的api_secret
+    domain: 'generalv3.5' # 要与spark_url对应
+
 
 bilibili_cookie: # https://nemo2011.github.io/bilibili-api/#/get-credential 获取cookie 下面五个值都要填
   SESSDATA: ''
