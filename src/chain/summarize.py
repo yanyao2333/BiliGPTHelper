@@ -49,7 +49,7 @@ class Summarize(BaseChain):
             chain=Chains.SUMMARIZE
         )  # 有坑，这里会把之前运行过的也重新加回来，不过我下面用判断简单补了一手，叫我天才！
         for task in uncomplete_task:
-            if task["process_stage"] != ProcessStages.END:
+            if task["process_stage"] != ProcessStages.END.value:
                 try:
                     _LOGGER.debug(f"恢复uuid: {task['uuid']} 的任务")
                     self.summarize_queue.put_nowait(BiliGPTTask.model_validate(task))
@@ -236,7 +236,7 @@ class Summarize(BaseChain):
             self.llm_router.report_error(llm.alias)
             return False
         answer, tokens = response
-        _LOGGER.debug(f"openai api输出内容为：{answer}")
+        _LOGGER.debug(f"api输出内容为：{answer}")
         self.now_tokens += tokens
         if answer:
             try:
@@ -254,8 +254,8 @@ class Summarize(BaseChain):
                     await self.finish(task)
                     return True
             except Exception as e:
-                _LOGGER.trace(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
-                traceback.print_tb(e.__traceback__)
+                _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
+                traceback.print_exc()
                 self._set_err_end(
                     task.uuid,
                     "重试后处理结果失败，大概是ai返回的格式不对，跳过",

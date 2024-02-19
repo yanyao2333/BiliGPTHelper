@@ -75,9 +75,28 @@ class AiproxyClaude(BaseModel):
         return value
 
 
+class Spark(BaseModel):
+    enable: bool = True
+    priority: int = 80
+    appid: str
+    api_key: str
+    api_secret: str
+    spark_url: str = Field(default="wss://spark-api.xf-yun.com/v3.5/chat") # 默认3.5版本
+    domain: str = Field(default="generalv3.5")  # 默认3.5
+
+    @field_validator("*", mode="after")
+    def check_required_fields(cls, value, values):
+        if values.data.get("enable") is False:
+            return value
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+
 class LLMs(BaseModel):
     openai: Openai
     aiproxy_claude: AiproxyClaude
+    spark: Spark
 
 
 class OpenaiWhisper(BaseModel):

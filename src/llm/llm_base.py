@@ -7,7 +7,7 @@ from typing import Tuple
 from src.llm.templates import Templates
 from src.models.config import Config
 from src.utils.logging import LOGGER
-from src.utils.prompt_utils import build_messages, parse_prompt
+from src.utils.prompt_utils import build_openai_style_messages, parse_prompt
 
 _LOGGER = LOGGER.bind(name="llm_base")
 
@@ -75,9 +75,9 @@ class LLMBase:
             utemplate = parse_prompt(template_user, **kwargs)
             stemplate = parse_prompt(template_system, **kwargs) if template_system else None
             prompt = (
-                build_messages(utemplate, stemplate, user_keyword, system_keyword)
+                build_openai_style_messages(utemplate, stemplate, user_keyword, system_keyword)
                 if stemplate
-                else build_messages(utemplate, user_keyword=user_keyword)
+                else build_openai_style_messages(utemplate, user_keyword=user_keyword)
             )
             _LOGGER.info("使用模板成功")
             _LOGGER.debug(f"生成的prompt为：{prompt}")

@@ -4,7 +4,7 @@ import uuid
 from enum import Enum
 from typing import Annotated, List, Optional, Union
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 
 class SummarizeAiResponse(BaseModel):
@@ -18,6 +18,20 @@ class SummarizeAiResponse(BaseModel):
     score: str  # 视频评分
     thinking: str  # 思考
     if_no_need_summary: bool  # 是否需要摘要
+
+    @field_validator("*", mode="after")
+    def check_required_fields(cls, value, values):
+        # 星火是真的蠢，返回的if_no_need_summary是字符串
+        match values.data.get("if_no_need_summary"):
+            case "否":
+                values.data["if_no_need_summary"] = False
+            case "是":
+                values.data["if_no_need_summary"] = True
+            case "yes":
+                values.data["if_no_need_summary"] = True
+            case "no":
+                values.data["if_no_need_summary"] = False
+        return value
 
 
 class AskAIResponse(BaseModel):

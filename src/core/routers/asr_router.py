@@ -91,7 +91,7 @@ class ASRouter:
             sorted(
                 self.asr_dict.items(),
                 key=lambda item: (
-                    not item[1].get("enabled", True),
+                    not item[1].get("enabled"),
                     item[1]["priority"],
                 ),
                 reverse=True,
