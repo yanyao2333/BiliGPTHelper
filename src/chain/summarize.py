@@ -166,11 +166,11 @@ class Summarize(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
                                 
-                            # 该替换会导致json转换失败
-                            # if "false" in answer:
-                            #     answer = answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
-                            # if "true" in answer:
-                            #     answer = answer.replace("true", "True")
+                            if "False" in answer:
+                                answer = answer.replace("False", "false")  # 解决一部分因为大小写问题导致的json解析失败
+                            if "True" in answer:
+                                answer = answer.replace("True", "true")
+                                
                             resp = json.loads(answer)
                             resp['score'] = str(resp['score'])  # 预防返回的值类型为int,强转成str
                             task.process_result = SummarizeAiResponse.model_validate(resp)
