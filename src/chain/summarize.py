@@ -241,6 +241,7 @@ class Summarize(BaseChain):
         if answer:
             try:
                 resp = json.loads(answer)
+                resp["score"] = str(resp["score"])
                 task.process_result = SummarizeAiResponse.model_validate(resp)
                 if task.process_result.if_no_need_summary is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
