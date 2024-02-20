@@ -30,8 +30,13 @@ class Openai(LLMBase):
             _LOGGER.info(
                 f"调用openai的Completion API成功，本次调用中，prompt+response的长度为{resp['usage']['total_tokens']}"
             )
+            resp_msg = resp["choices"][0]["message"]["content"]
+            if resp_msg.startswith("```json"):
+                resp_msg = resp_msg[7:]
+            if resp_msg.endswith("```"):
+                resp_msg = resp_msg[:-3]
             return (
-                resp["choices"][0]["message"]["content"],
+                resp_msg,
                 resp["usage"]["total_tokens"],
             )
         except Exception as e:
