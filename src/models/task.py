@@ -19,13 +19,13 @@ class SummarizeAiResponse(BaseModel):
     thinking: str  # 思考
     if_no_need_summary: bool  # 是否需要摘要
 
-    @field_validator("score")
+    @field_validator("score", mode="before")
     def check_score(cls, value, values):
         if not isinstance(value, str):
             return str(value)
         return value
 
-    @field_validator("*", mode="after")
+    @field_validator("*", mode="before")
     def check_required_fields(cls, value, values):
         # 星火是真的蠢，返回的if_no_need_summary是字符串
         match values.data.get("if_no_need_summary"):
@@ -53,7 +53,7 @@ class AskAIResponse(BaseModel):
     answer: str  # 回答
     score: str  # 评分
 
-    @field_validator("score")
+    @field_validator("score", mode="before")
     def check_score(cls, value, values):
         if not isinstance(value, str):
             return str(value)
