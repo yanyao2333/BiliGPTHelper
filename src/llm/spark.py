@@ -172,7 +172,7 @@ class Spark(LLMBase):
 7. "score"部分的值必须是字符串类型。
 8. 写作"thinking"部分时，忽略上述规则，表达你的独立思考，包括你自己的激进观点，而非视频内容。评分基于这个视频。如果你认为你创造了一个有意义的摘要，给自己一个高分。
 9. 如果视频毫无意义，将此JSON的"if_no_need_summary"设置为true，否则设置为false。
-10. 返回的内容只允许纯JSON格式，JSON的键和值必须使用双引号包裹！请使用简体中文!
+10. 返回的内容只允许纯JSON格式，JSON的键和值必须使用英文双引号包裹！请使用简体中文!
 """
             else:
                 template_system = system_template_name.value
