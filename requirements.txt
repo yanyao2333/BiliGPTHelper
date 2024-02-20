@@ -1,6 +1,6 @@
 bilibili-api-python==16.2.0
 loguru
-openai
+openai==0.28
 openai-whisper
 APScheduler
 pytest
