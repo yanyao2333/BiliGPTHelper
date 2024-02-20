@@ -79,6 +79,8 @@ class Spark(LLMBase):
 
     async def completion(self, prompt, **kwargs) -> Tuple[str, int] | None:
         try:
+            self._answer_temp = ""
+            self._once_total_tokens = 0
             ws_url = self.create_url()
 
             async with websockets.connect(ws_url) as websocket:
@@ -103,8 +105,6 @@ class Spark(LLMBase):
                 # TODO 星火返回的json永远是单引号包围的
             data = ast.literal_eval(self._answer_temp)  # 骚操作
             data = json.dumps(data, ensure_ascii=False)
-
-            # TODO 重试prompt在星火这里也有很大问题，他会把json返回两遍...
 
             _LOGGER.debug(f"经简单处理后的返回结果为：{data}")
             return data, self._once_total_tokens
