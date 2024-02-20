@@ -114,12 +114,12 @@ class Spark(LLMBase):
                 self._answer_temp = self._answer_temp[7:]
             if self._answer_temp.endswith("```"):
                 self._answer_temp = self._answer_temp[:-3]
-                # TODO 星火返回的json永远是单引号包围的
-            data = ast.literal_eval(self._answer_temp)  # 骚操作
-            data = json.dumps(data, ensure_ascii=False)
+            # TODO 星火返回的json永远是单引号包围的
+            self._answer_temp = ast.literal_eval(self._answer_temp)  # 骚操作
+            self._answer_temp = json.dumps(self._answer_temp, ensure_ascii=False)
 
-            _LOGGER.debug(f"经简单处理后的返回结果为：{data}")
-            return data, self._once_total_tokens
+            _LOGGER.debug(f"经简单处理后的返回结果为：{self._answer_temp}")
+            return self._answer_temp, self._once_total_tokens
         except Exception as e:
             traceback.print_exc()
             _LOGGER.error(f"调用讯飞星火大模型失败：{e}")
@@ -169,10 +169,10 @@ class Spark(LLMBase):
 4. 保持幽默，避免正式，需要时可以使用中文网络语言和表情符号。
 5. 忽略不相关的标签/评论。
 6. 分段落写作。
-7. 'score'部分的值必须是字符串类型。
-8. 写作'thinking'部分时，忽略上述规则，表达你的独立思考，包括你自己的激进观点，而非视频内容。评分基于这个视频。如果你认为你创造了一个有意义的摘要，给自己一个高分。
-9. 如果视频毫无意义，将此JSON的'if_no_need_summary'设置为true，否则设置为false。
-10. 只允许纯JSON内容，JSON的键和值必须使用双引号包裹！请使用简体中文!
+7. "score"部分的值必须是字符串类型。
+8. 写作"thinking"部分时，忽略上述规则，表达你的独立思考，包括你自己的激进观点，而非视频内容。评分基于这个视频。如果你认为你创造了一个有意义的摘要，给自己一个高分。
+9. 如果视频毫无意义，将此JSON的"if_no_need_summary"设置为true，否则设置为false。
+10. 返回的内容只允许纯JSON格式，JSON的键和值必须使用双引号包裹！请使用简体中文!
 """
             else:
                 template_system = system_template_name.value
@@ -191,10 +191,12 @@ class Spark(LLMBase):
                 template_user = user_template_name.value
             utemplate = parse_prompt(template_user, **kwargs)
             stemplate = parse_prompt(template_system, **kwargs) if template_system else None
+            # final_template = utemplate + stemplate if stemplate else utemplate # 特殊处理，system附加到user后面
             prompt = (
                 build_openai_style_messages(utemplate, stemplate, user_keyword, system_keyword)
                 if stemplate
                 else build_openai_style_messages(utemplate, user_keyword=user_keyword)
+                # build_openai_style_messages(final_template, user_keyword=user_keyword)
             )
             _LOGGER.info("使用模板成功")
             _LOGGER.debug(f"生成的prompt为：{prompt}")
