@@ -62,12 +62,20 @@ class Spark(LLMBase):
         # 此处打印出建立连接时候的url,参考本demo的时候可取消上方打印的注释，比对相同参数时生成的url与自己代码生成的url是否一致
         return url
 
-    async def on_message(self, ws, message):
+    async def on_message(self, ws, message) -> int:
+        """
+
+        :param ws:
+        :param message:
+        :return: 1为还未结束 0为正常结束 2为异常结束
+        """
         data = json.loads(message)
         code = data["header"]["code"]
         if code != 0:
             _LOGGER.error(f"讯飞星火大模型请求失败:    错误代码：{code}  返回内容：{data}")
             await ws.close()
+            return 2
+
         else:
             choices = data["payload"]["choices"]
             status = choices["status"]
@@ -76,6 +84,8 @@ class Spark(LLMBase):
             if status == 2:
                 self._once_total_tokens = data["payload"]["usage"]["text"]["total_tokens"]
                 await ws.close()
+                return 0
+            return 1
 
     async def completion(self, prompt, **kwargs) -> Tuple[str, int] | None:
         try:
@@ -91,8 +101,10 @@ class Spark(LLMBase):
                 data = json.dumps(self.gen_params(prompt))
                 await websocket.send(data)
                 async for message in websocket:
-                    await self.on_message(websocket, message)
-
+                    res = await self.on_message(websocket, message)
+                    if res == 2:
+                        # 如果出现异常，直接返回（上层已经打印过错误，直接返回）
+                        return None
             _LOGGER.debug(
                 f"调用讯飞星火大模型成功，返回结果为：{self._answer_temp}，本次调用中，prompt+response的长度为{self._once_total_tokens}"
             )
@@ -160,7 +172,7 @@ class Spark(LLMBase):
 7. 'score'部分的值必须是字符串类型。
 8. 写作'thinking'部分时，忽略上述规则，表达你的独立思考，包括你自己的激进观点，而非视频内容。评分基于这个视频。如果你认为你创造了一个有意义的摘要，给自己一个高分。
 9. 如果视频毫无意义，将此JSON的'if_no_need_summary'设置为true，否则设置为false。
-10. 只允许纯JSON内容，必须使用双引号！请使用简体中文!
+10. 只允许纯JSON内容，JSON的键和值必须使用双引号包裹！请使用简体中文!
 """
             else:
                 template_system = system_template_name.value
