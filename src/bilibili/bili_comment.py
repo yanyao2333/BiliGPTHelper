@@ -103,6 +103,7 @@ class BiliComment:
         """
         构建回复内容
 
+        :param user: 用户名
         :param response: AI响应内容
         :return: 回复内容字符串
         """
@@ -133,7 +134,10 @@ class BiliComment:
                     oid = int(aid)
                     # root = data.source_extra_attr.source_id
                     user = data.raw_task_data["user"]["nickname"]
-                    text = BiliComment.build_reply_content(data.process_result, user)
+                    if isinstance(data.process_result, str):
+                        text = data.process_result + f"\n【此次评论由 @{user} 邀请回答】"
+                    else:
+                        text = BiliComment.build_reply_content(data.process_result, user)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,

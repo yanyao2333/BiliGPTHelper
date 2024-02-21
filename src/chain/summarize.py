@@ -126,7 +126,7 @@ class Summarize(BaseChain):
                     llm = self.llm_router.get_one()
                     if llm is None:
                         _LOGGER.warning("没有可用的LLM，关闭系统")
-                        self._set_err_end(_item_uuid, "没有可用的LLM，被迫结束处理")
+                        await self._set_err_end(msg="没有可用的LLM，被迫结束处理", task=task)
                         self.stop_event.set()
                         continue
                     prompt = llm.use_template(
@@ -143,7 +143,7 @@ class Summarize(BaseChain):
                     response = await llm.completion(prompt)
                     if response is None:
                         _LOGGER.warning(f"任务{task.uuid}：ai未返回任何内容，请自行检查问题，跳过处理")
-                        self._set_err_end(_item_uuid, "ai未返回任何内容，请自行检查问题，跳过处理")
+                        await self._set_err_end(msg="ai未返回任何内容，请自行检查问题，跳过处理", task=task)
                         self.llm_router.report_error(llm.alias)
                         continue
                     answer, tokens = response
@@ -184,7 +184,7 @@ class Summarize(BaseChain):
                                 # await BiliSession.quick_send(
                                 #     self.credential, task, answer
                                 # )
-                                self._set_noneed_end(_item_uuid)
+                                await self._set_noneed_end(task)
                                 continue
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"
@@ -222,16 +222,16 @@ class Summarize(BaseChain):
         llm = self.llm_router.get_one()
         if llm is None:
             _LOGGER.warning("没有可用的LLM，关闭系统")
-            self._set_err_end(task.uuid, "没有可用的LLM，跳过处理")
+            await self._set_err_end(msg="没有可用的LLM，跳过处理", task=task)
             self.stop_event.set()
             return False
         prompt = llm.use_template(Templates.SUMMARIZE_RETRY, input=ai_answer)
         response = await llm.completion(prompt)
         if response is None:
             _LOGGER.warning(f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理")
-            self._set_err_end(
-                task.uuid,
-                f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理",
+            await self._set_err_end(
+                msg=f"视频{format_video_name}摘要生成失败，请自行检查问题，跳过处理",
+                task=task,
             )
             self.llm_router.report_error(llm.alias)
             return False
@@ -245,7 +245,7 @@ class Summarize(BaseChain):
                 task.process_result = SummarizeAiResponse.model_validate(resp)
                 if task.process_result.if_no_need_summary is True:
                     _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
-                    self._set_noneed_end(task.uuid)
+                    await self._set_noneed_end(task)
                     return False
                 else:
                     # TODO 这种运行时间的显示存在很大问题，有空了统一一下，但现在我是没空了
@@ -257,8 +257,8 @@ class Summarize(BaseChain):
             except Exception as e:
                 _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，拿你没辙了，跳过处理")
                 traceback.print_exc()
-                self._set_err_end(
-                    task.uuid,
-                    "重试后处理结果失败，大概是ai返回的格式不对，跳过",
+                await self._set_err_end(
+                    msg="重试后处理结果失败，大概是ai返回的格式不对，跳过",
+                    task=task,
                 )
                 return False

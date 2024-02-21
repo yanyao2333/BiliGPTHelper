@@ -11,6 +11,7 @@ from injector import inject
 
 from src.bilibili.bili_comment import BiliComment
 from src.bilibili.bili_credential import BiliCredential
+from src.bilibili.bili_session import BiliSession
 from src.bilibili.bili_video import BiliVideo
 from src.core.routers.asr_router import ASRouter
 from src.core.routers.llm_router import LLMRouter
@@ -70,35 +71,72 @@ class BaseChain:
         self.private_queue = self.queue_manager.get_queue("private")
         self.ask_ai_queue = self.queue_manager.get_queue("ask_ai")
 
-    def _set_err_end(self, _uuid: str, msg: str):
-        """当一个视频因为错误而结束时，调用此方法"""
+    async def _set_err_end(self, msg: str, _uuid: str = None, task: BiliGPTTask=None):
+        """当一个视频因为错误而结束时，调用此方法
+
+        :param msg: 错误信息
+        :param _uuid: 任务uuid (跟task二选一)
+        :param task: 任务对象
+        """
         self.task_status_recorder.update_record(
-            _uuid,
+            _uuid if _uuid else task.uuid,
             new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.ERROR,
             gmt_end=int(time.time()),
             error_msg=msg,
         )
+        if _uuid:
+            _task = self.task_status_recorder.get_data_by_uuid(_uuid)
+        else:
+            _task = task
+        match _task.source_type:
+            case "bili_private":
+                self._LOGGER.debug(f"任务{task.uuid}:私信消息，直接回复：{msg}")
+                await BiliSession.quick_send(
+            self.credential,
+            task,
+            msg,
+        )
+            case "bili_comment":
+                _task.process_result = msg
+                self._LOGGER.debug(f"任务{task.uuid}:评论消息，将结果放入评论处理队列，内容：{msg}")
+                await self.reply_queue.put(task)
+            case "api":
+                self._LOGGER.warning(f"任务{task.uuid}:api获取的消息，未实现处理逻辑")
 
-    def _set_normal_end(self, _uuid: str):
-        """当一个视频正常结束时，调用此方法"""
+
+    async def _set_normal_end(self, task: BiliGPTTask=None, _uuid: str = None):
+        """当一个视频正常结束时，调用此方法
+
+        :param task: 任务对象
+        :param _uuid: 任务uuid (跟task二选一)
+        """
         self.task_status_recorder.update_record(
-            _uuid,
+            _uuid if _uuid else task.uuid,
             new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.NORMAL,
             gmt_end=int(time.time()),
         )
 
-    def _set_noneed_end(self, _uuid: str):
-        """当一个视频不需要处理时，调用此方法"""
+    async def _set_noneed_end(self, task: BiliGPTTask=None, _uuid: str = None):
+        """当一个视频不需要处理时，调用此方法
+
+        :param task: 任务对象
+        :param _uuid: 任务uuid (跟task二选一)
+        """
         self.task_status_recorder.update_record(
-            _uuid,
+            _uuid if _uuid else task.uuid,
             new_task_data=None,
             process_stage=ProcessStages.END,
             end_reason=EndReasons.NONEED,
             gmt_end=int(time.time()),
+        )
+        await BiliSession.quick_send(
+            self.credential,
+            task,
+            "AI觉得你的视频不需要处理，换个更有意义的视频再试试看吧！",
         )
 
     @abc.abstractmethod
@@ -112,7 +150,7 @@ class BaseChain:
 
     async def finish(self, task: BiliGPTTask, use_cache: bool = False) -> bool:
         """
-        结束一项任务，将消息放入队列、设置缓存、更新任务状态
+        当一个任务 **正常** 结束时，调用这个，将消息放入队列、设置缓存、更新任务状态
         :param task:
         :param use_cache: 是否直接使用缓存而非正常处理
         :return:
@@ -139,12 +177,12 @@ class BaseChain:
             reply_data.uuid, new_task_data=task, process_stage=ProcessStages.WAITING_PUSH_TO_CACHE
         )
         if use_cache:
-            self._set_normal_end(task.uuid)
+            await self._set_normal_end(task)
             return True
         self.cache.set_cache(
             key=reply_data.video_id, value=reply_data.process_result.model_dump(), chain=str(task.chain.value)
         )
-        self._set_normal_end(task.uuid)
+        await self._set_normal_end(task)
         return True
 
     async def _is_cached_video(self, task: BiliGPTTask, _uuid: str, video_info: dict) -> bool:
@@ -190,7 +228,7 @@ class BaseChain:
         # TODO 不清楚b站回复和at时分P的展现机制，暂时遇到分P视频就跳过
         if len(video_info["pages"]) > 1:
             _LOGGER.warning(f"任务{task.uuid}: 视频{format_video_name}分P，跳过处理")
-            self._set_err_end(task.uuid, "视频分P，跳过处理")
+            await self._set_err_end(msg="视频分P，跳过处理", task=task)
             return None
         # 获取视频标签
         video_tags_string = " ".join(f"#{tag['tag_name']}" for tag in await video.get_video_tags())
@@ -220,7 +258,7 @@ class BaseChain:
         _LOGGER = self._LOGGER
         if self.asr is None:
             _LOGGER.warning("没有可用的asr，跳过处理")
-            self._set_err_end(_uuid, "没有可用的asr，跳过处理")
+            await self._set_err_end(_uuid=_uuid, msg="没有可用的asr，跳过处理")
         if is_retry:
             # 如果是重试，就默认已下载音频文件，直接开始转写
             bvid = await video.bvid
@@ -228,7 +266,7 @@ class BaseChain:
             self.asr = self.asr_router.get_one()  # 重新获取一个，防止因为错误而被禁用，但调用端没及时更新
             if self.asr is None:
                 _LOGGER.warning("没有可用的asr，跳过处理")
-                self._set_err_end(_uuid, "没有可用的asr，跳过处理")
+                await self._set_err_end(_uuid, "没有可用的asr，跳过处理")
             text = await self.asr.transcribe(audio_path)
             if text is None:
                 _LOGGER.warning("音频转写失败，报告并重试")
@@ -275,7 +313,7 @@ class BaseChain:
         if subtitle_url is None:
             if self.asr is None:
                 _LOGGER.warning(f"视频{format_video_name}没有字幕，你没有可用的asr，跳过处理")
-                self._set_err_end(_uuid, "视频没有字幕，你没有可用的asr，跳过处理")
+                await self._set_err_end(_uuid, "视频没有字幕，你没有可用的asr，跳过处理")
                 return None
             _LOGGER.warning(f"视频{format_video_name}没有字幕，开始使用asr转写，这可能会导致字幕质量下降")
             text = await self._get_subtitle_from_asr(video, _uuid)

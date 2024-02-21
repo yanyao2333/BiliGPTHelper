@@ -88,7 +88,7 @@ class AskAI(BaseChain):
                     llm = self.llm_router.get_one()
                     if llm is None:
                         _LOGGER.warning("没有可用的LLM，关闭系统")
-                        self._set_err_end(_item_uuid, "没有可用的LLM，被迫结束处理")
+                        await self._set_err_end(msg="没有可用的LLM，被迫结束处理", task=task)
                         self.stop_event.set()
                         continue
                     prompt = llm.use_template(
@@ -104,7 +104,7 @@ class AskAI(BaseChain):
                     response = await llm.completion(prompt)
                     if response is None:
                         _LOGGER.warning(f"任务{task.uuid}：ai未返回任何内容，请自行检查问题，跳过处理")
-                        self._set_err_end(_item_uuid, "ai未返回任何内容，请自行检查问题，跳过处理")
+                        await self._set_err_end(msg="ai未返回任何内容，请自行检查问题，跳过处理", task=task)
                         self.llm_router.report_error(llm.alias)
                         continue
                     answer, tokens = response
@@ -182,8 +182,8 @@ class AskAI(BaseChain):
         _LOGGER.error(
             f"任务{task.uuid}：真不好意思！但是我ask_ai部分的retry还没写！所以只能先全给你设置成错误结束了嘿嘿嘿"
         )
-        self._set_err_end(
-            task.uuid,
-            "重试代码未实现，跳过",
+        await self._set_err_end(
+            msg="重试代码未实现，跳过",
+            task=task,
         )
         return False
