@@ -19,7 +19,7 @@ from src.models.config import Config
 from src.models.task import (
     BiliGPTTask,
     EndReasons,
-    ProcessStages,
+    ProcessStages, SummarizeAiResponse, AskAIResponse,
 )
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
@@ -193,17 +193,26 @@ class BaseChain:
         """
         if self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value)):
             LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
+            cache = self.cache.get_cache(
+                key=video_info["bvid"], chain=str(task.chain.value)
+            )
+            # if str(task.chain.value) == "summarize":
+            #     cache = SummarizeAiResponse.model_validate(cache)
+            # elif str(task.chain.value) == "ask_ai":
+            #     cache = AskAIResponse.model_validate(cache)
+            match str(task.chain.value):
+                case "summarize":
+                    cache = SummarizeAiResponse.model_validate(cache)
+                case "ask_ai":
+                    cache = AskAIResponse.model_validate(cache)
+                case _:
+                    self._LOGGER.error(f"获取到了缓存，但无法匹配处理链{task.chain.value}，无法调取缓存，开始按正常流程处理")
+                    return False
             match task.source_type:
                 case "bili_private":
-                    cache = self.cache.get_cache(
-                        key=video_info["bvid"], chain=str(task.chain.value)
-                    )
                     task.process_result = cache
                     await self.finish(task, True)
                 case "bili_comment":
-                    cache = self.cache.get_cache(
-                        key=video_info["bvid"], chain=str(task.chain.value)
-                    )
                     task.process_result = cache
                     await self.finish(task, True)
             return True

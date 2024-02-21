@@ -53,8 +53,7 @@ class BiliSession:
         elif isinstance(response, AskAIResponse):
             msg_list = [f"【回答】{response.answer}\n\n【自我评分】{response.score}分"]
         else:
-            # 笨蛋ide，根本不会有不存在msg_list状况！逼我多写了两行
-            msg_list = []
+            msg_list = [f"程序内部错误：无法识别的回复类型{type(response)}"]
         return msg_list
 
     @tenacity.retry(
