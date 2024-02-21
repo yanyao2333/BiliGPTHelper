@@ -1,4 +1,3 @@
-import ast
 import base64
 import hashlib
 import hmac
@@ -122,17 +121,17 @@ class Spark(LLMBase):
             if self._answer_temp.endswith("```"):
                 self._answer_temp = self._answer_temp[:-3]
             # 星火返回的json永远是单引号包围的，下面尝试使用eval方式解析
-            try:
-                _answer = self._answer_temp
-                _answer = _answer.replace("true", "True")
-                _answer = _answer.replace("false", "False")
-                _answer = ast.literal_eval(_answer)  # 骚操作
-                _answer = json.dumps(_answer, ensure_ascii=False)
-                _LOGGER.debug(f"经简单处理后的返回结果为：{_answer}")
-                return _answer, self._once_total_tokens
-            except Exception as e:
-                _LOGGER.error(f"尝试使用eval方式解析星火返回的json失败：{e}")
-                traceback.print_exc()
+            # try:
+            #     _answer = self._answer_temp
+            #     _answer = _answer.replace("true", "True")
+            #     _answer = _answer.replace("false", "False")
+            #     _answer = ast.literal_eval(_answer)  # 骚操作
+            #     _answer = json.dumps(_answer, ensure_ascii=False)
+            #     _LOGGER.debug(f"经简单处理后的返回结果为：{_answer}")
+            #     return _answer, self._once_total_tokens
+            # except Exception as e:
+            #     _LOGGER.error(f"尝试使用eval方式解析星火返回的json失败：{e}")
+            #     traceback.print_exc()
             # 如果eval方式解析失败，直接返回
             _LOGGER.debug(f"经简单处理后的返回结果为：{self._answer_temp}")
             return self._answer_temp, self._once_total_tokens

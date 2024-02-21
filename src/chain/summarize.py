@@ -1,9 +1,9 @@
 import asyncio
-import json
 import time
 import traceback
 
 import tenacity
+import yaml
 
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
@@ -170,17 +170,15 @@ class Summarize(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
 
-                            if "False" in answer:
-                                answer = answer.replace(
-                                    "False", "false"
-                                )  # 解决一部分因为大小写问题导致的json解析失败
-                            if "True" in answer:
-                                answer = answer.replace("True", "true")
+                            answer = answer.replace(
+                                "False", "false"
+                            )  # 解决一部分因为大小写问题导致的json解析失败
+                            answer = answer.replace("True", "true")
 
-                            resp = json.loads(answer)
-                            resp["score"] = str(resp["score"])  # 预防返回的值类型为int,强转成str
+                            ai_resp = yaml.safe_load(answer)
+                            ai_resp["score"] = str(ai_resp["score"])  # 预防返回的值类型为int,强转成str
                             task.process_result = SummarizeAiResponse.model_validate(
-                                resp
+                                ai_resp
                             )
                             if task.process_result.if_no_need_summary is True:
                                 _LOGGER.warning(
@@ -254,7 +252,7 @@ class Summarize(BaseChain):
         self.now_tokens += tokens
         if answer:
             try:
-                resp = json.loads(answer)
+                resp = yaml.safe_load(answer)
                 resp["score"] = str(resp["score"])
                 task.process_result = SummarizeAiResponse.model_validate(resp)
                 if task.process_result.if_no_need_summary is True:

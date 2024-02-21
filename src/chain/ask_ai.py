@@ -1,9 +1,9 @@
 import asyncio
-import json
 import time
 import traceback
 
 import tenacity
+import yaml
 
 from src.bilibili.bili_session import BiliSession
 from src.chain.base_chain import BaseChain
@@ -130,13 +130,11 @@ class AskAI(BaseChain):
                         try:
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
-                            if "false" in answer:
-                                answer.replace(
-                                    "false", "False"
-                                )  # 解决一部分因为大小写问题导致的json解析失败
-                            if "true" in answer:
-                                answer.replace("true", "True")
-                            resp = json.loads(answer)
+                            answer = answer.replace(
+                                "False", "false"
+                            )  # 解决一部分因为大小写问题导致的json解析失败
+                            answer = answer.replace("True", "true")
+                            resp = yaml.safe_load(answer)
                             task.process_result = AskAIResponse.model_validate(resp)
                             _LOGGER.info(
                                 f"ai返回内容解析正确，视频{format_video_name}摘要处理完成，共用时{time.perf_counter() - begin_time}s"

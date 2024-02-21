@@ -41,6 +41,10 @@ class SummarizeAiResponse(BaseModel):
                 cls.if_no_need_summary = False
             case "true":
                 cls.if_no_need_summary = True
+            case "True":
+                cls.if_no_need_summary = True
+            case "False":
+                cls.if_no_need_summary = False
         return value
 
 
@@ -117,8 +121,8 @@ class BiliGPTTask(BaseModel):
         BiliAtSpecialAttributes
     ] = None  # 在获取到task时附加的其他原始参数（比如评论id等）
     process_result: Optional[
-        Union[SummarizeAiResponse, AskAIResponse, str]
-    ] = None  # 最终处理结果，根据不同的处理链会有不同的结果
+        Union[SummarizeAiResponse, AskAIResponse, str, dict]
+    ] = None  # 最终处理结果，根据不同的处理链会有不同的结果 （dict的存在是一个历史遗留问题，不想解决了，再拉一坨）
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
     process_stage: Optional[ProcessStages] = Field(
         default=ProcessStages.PREPROCESS
