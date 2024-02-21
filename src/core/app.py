@@ -36,9 +36,15 @@ class BiliGPT(Module):
             #     os.getenv("DOCKER_CONFIG_FILE", "config.yml"), os.getenv("DOCKER_CONFIG_FILE", "config.yml") + ".bak"
             # )
             if os.getenv("RUNNING_IN_DOCKER") == "yes":
-                shutil.copy("./config/docker_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"))
+                shutil.copy(
+                    "./config/docker_config.yml",
+                    os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"),
+                )
             else:
-                shutil.copy("./config/example_config.yml", os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"))
+                shutil.copy(
+                    "./config/example_config.yml",
+                    os.getenv("DOCKER_CONFIG_FILE", "config_template.yml"),
+                )
             # {
             #     field_name: (field.field_info.default if not field.required else "")
             #     for field_name, field in Config.model_fields.items()
@@ -70,7 +76,9 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_credential(self, config: Config, scheduler: AsyncIOScheduler) -> BiliCredential:
+    def provide_credential(
+        self, config: Config, scheduler: AsyncIOScheduler
+    ) -> BiliCredential:
         _LOGGER.info("正在初始化cookie")
         return BiliCredential(
             SESSDATA=config.bilibili_cookie.SESSDATA,
@@ -99,7 +107,9 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_chain_router(self, config: Config, queue_manager: QueueManager) -> ChainRouter:
+    def provide_chain_router(
+        self, config: Config, queue_manager: QueueManager
+    ) -> ChainRouter:
         _LOGGER.info("正在初始化Chain路由器")
         router = ChainRouter(config, queue_manager)
         return router
@@ -111,7 +121,9 @@ class BiliGPT(Module):
         return AsyncIOScheduler(timezone="Asia/Shanghai")
 
     @provider
-    def provide_queue(self, queue_manager: QueueManager, queue_name: str) -> asyncio.Queue:
+    def provide_queue(
+        self, queue_manager: QueueManager, queue_name: str
+    ) -> asyncio.Queue:
         _LOGGER.info(f"正在初始化队列 {queue_name}")
         return queue_manager.get_queue(queue_name)
 

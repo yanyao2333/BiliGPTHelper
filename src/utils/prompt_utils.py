@@ -5,7 +5,9 @@ def parse_prompt(prompt_template, **kwargs):
     return prompt_template
 
 
-def build_openai_style_messages(user_msg, system_msg=None, user_keyword="user", system_keyword="system"):
+def build_openai_style_messages(
+    user_msg, system_msg=None, user_keyword="user", system_keyword="system"
+):
     """构建消息
     :param user_msg: 用户消息
     :param system_msg: 系统消息

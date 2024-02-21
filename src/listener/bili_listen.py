@@ -68,7 +68,9 @@ class Listen:
         new_items = []
         for item in reversed(data["items"]):
             if item["at_time"] > self.last_at_time:
-                _LOGGER.debug(f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列")
+                _LOGGER.debug(
+                    f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列"
+                )
                 # item["user"] = data["items"]["user"]
                 new_items.append(item)
         if len(new_items) == 0:
@@ -94,11 +96,15 @@ class Listen:
                 return None
             event["source_type"] = "bili_comment"
             event["raw_task_data"] = deepcopy(msg)
-            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event["item"])
+            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(
+                event["item"]
+            )
             event["sender_id"] = str(event["user"]["mid"])
             event["video_url"] = event["item"]["uri"]
             event["source_command"] = event["item"]["source_content"]
-            event["video_id"] = await BiliVideo(credential=self.credential, url=event["item"]["uri"]).bvid
+            event["video_id"] = await BiliVideo(
+                credential=self.credential, url=event["item"]["uri"]
+            ).bvid
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
             traceback.print_exc()
@@ -143,16 +149,22 @@ class Listen:
         return task_metadata
 
     async def handle_video(self, user_id, event):
-        _session = self.user_sessions.get(user_id, {"status": "idle", "text_event": {}, "video_event": {}})
+        _session = self.user_sessions.get(
+            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
+        )
         match _session["status"]:
             case "idle" | "waiting_for_keyword":
                 _session["status"] = "waiting_for_keyword"
                 _session["video_event"] = event
-                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
+                _session["video_event"]["content"] = _session["video_event"][
+                    "content"
+                ].get_bvid()
 
             case "waiting_for_video":
                 _session["video_event"] = event
-                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
+                _session["video_event"]["content"] = _session["video_event"][
+                    "content"
+                ].get_bvid()
                 at_items = await self.build_task_from_private_msg(_session)
                 if at_items is None:
                     return
@@ -191,7 +203,9 @@ class Listen:
                 #     keyword = p1
                 bvid = event["content"][:12]
                 if not re.search("^BV[a-zA-Z0-9]{10}$", bvid):
-                    _LOGGER.warning(f"从消息‘{event['content']}’中提取bv号失败！你是不是没把bv号放在消息最前面？！")
+                    _LOGGER.warning(
+                        f"从消息‘{event['content']}’中提取bv号失败！你是不是没把bv号放在消息最前面？！"
+                    )
                     return
                 if _session["status"] in (
                     "waiting_for_keyword",

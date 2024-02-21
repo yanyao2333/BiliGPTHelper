@@ -39,7 +39,9 @@ V3_SUMMARIZE_SYSTEM_PROMPT = (
     "10. Only pure JSON content with double quotes is allowed!Please use Simplified Chinese!"
 )
 
-SUMMARIZE_USER_TEMPLATE = "标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"
+SUMMARIZE_USER_TEMPLATE = (
+    "标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"
+)
 
 RETRY_TEMPLATE = f"请你把我下面提供的这段文字转换成这样的json格式并返回给我，不要加其他东西，如summary字段不存在，设置if_no_need_summary为true。除了summary的其他几个字段不存在均可忽略，对应值留空，if_no_need_summary依旧为false：\n\n标准JSON格式：{V3_SUMMARIZE_JSON_RESPONSE}\n\n我的内容：[input]"
 
@@ -47,9 +49,7 @@ AFTER_PROCESS_SUBTITLE = (
     "下面是使用语音转文字得到的字幕，你需要修复其中的语法错误、名词错误、如果是繁体中文就转为简体中文：\n\n[subtitle]"
 )
 
-V2_SUMMARIZE_USER_TEMPLATE = (
-    "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nTags: [tags]\n\nComments: [comments]"
-)
+V2_SUMMARIZE_USER_TEMPLATE = "Title: [title]\n\nDescription: [description]\n\nSubtitles: [subtitle]\n\nTags: [tags]\n\nComments: [comments]"
 
 V2_SUMMARIZE_RETRY_TEMPLATE = f"Please translate the following text into this JSON format and return it to me without adding anything else. If the 'summary' field does not exist, set 'if_no_need_summary' to true. If fields other than 'summary' are missing, they can be ignored and left blank, and 'if_no_need_summary' remains false\n\nStandard JSON format: {V3_SUMMARIZE_JSON_RESPONSE}\n\nMy content: [input]"
 

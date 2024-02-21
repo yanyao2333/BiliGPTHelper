@@ -25,7 +25,9 @@ class Openai(LLMBase):
         """
         try:
             model = self.config.LLMs.openai.model
-            resp = self.openai.ChatCompletion.create(model=model, messages=prompt, **kwargs)
+            resp = self.openai.ChatCompletion.create(
+                model=model, messages=prompt, **kwargs
+            )
             _LOGGER.debug(f"调用openai的Completion API成功，API返回结果为：{resp}")
             _LOGGER.info(
                 f"调用openai的Completion API成功，本次调用中，prompt+response的长度为{resp['usage']['total_tokens']}"

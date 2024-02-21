@@ -130,7 +130,10 @@ class LocalWhisper(BaseModel):
     priority: int = 60
     model_size: str = "tiny"
     device: str = "cpu"
-    model_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_WHISPER_MODELS_DIR"), validate_default=True)
+    model_dir: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_WHISPER_MODELS_DIR"),
+        validate_default=True,
+    )
     after_process: bool = False
 
     # noinspection PyMethodParameters
@@ -159,11 +162,22 @@ class ASRs(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    cache_path: str = Field(default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True)
-    temp_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True)
-    task_status_records: str = Field(default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True)
-    statistics_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_STATISTICS_DIR"), validate_default=True)
-    queue_save_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True)
+    cache_path: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True
+    )
+    temp_dir: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True
+    )
+    task_status_records: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True
+    )
+    statistics_dir: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_STATISTICS_DIR"),
+        validate_default=True,
+    )
+    queue_save_dir: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True
+    )
 
     # noinspection PyMethodParameters
     @field_validator("*", mode="after")

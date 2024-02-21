@@ -75,7 +75,9 @@ class AskAI(BaseChain):
                         text = task.subtitle
                         _LOGGER.debug("使用字幕缓存，开始使用模板生成prompt")
                     else:
-                        text = await self._smart_get_subtitle(video, _item_uuid, format_video_name, task)
+                        text = await self._smart_get_subtitle(
+                            video, _item_uuid, format_video_name, task
+                        )
                         if text is None:
                             continue
                         task.subtitle = text
@@ -83,7 +85,9 @@ class AskAI(BaseChain):
                         f"视频{format_video_name}音频流和字幕处理完成，共用时{time.perf_counter() - begin_time}s，开始调用LLM生成摘要"
                     )
                     self.task_status_recorder.update_record(
-                        _item_uuid, new_task_data=task, process_stage=ProcessStages.WAITING_LLM_RESPONSE
+                        _item_uuid,
+                        new_task_data=task,
+                        process_stage=ProcessStages.WAITING_LLM_RESPONSE,
                     )
                     llm = self.llm_router.get_one()
                     if llm is None:
@@ -127,7 +131,9 @@ class AskAI(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
                             if "false" in answer:
-                                answer.replace("false", "False")  # 解决一部分因为大小写问题导致的json解析失败
+                                answer.replace(
+                                    "false", "False"
+                                )  # 解决一部分因为大小写问题导致的json解析失败
                             if "true" in answer:
                                 answer.replace("true", "True")
                             resp = json.loads(answer)
@@ -140,7 +146,9 @@ class AskAI(BaseChain):
                             _LOGGER.error(f"处理结果失败：{e}，大概是ai返回的格式不对，尝试修复")
                             traceback.print_tb(e.__traceback__)
                             self.task_status_recorder.update_record(
-                                _item_uuid, new_task_data=task, process_stage=ProcessStages.WAITING_RETRY
+                                _item_uuid,
+                                new_task_data=task,
+                                process_stage=ProcessStages.WAITING_RETRY,
                             )
                             await self.retry(
                                 answer,
@@ -169,7 +177,9 @@ class AskAI(BaseChain):
                     # TODO 这里除了打印日志，是不是还应该记录在视频状态中？
                     _LOGGER.error(f"在恢复uuid: {task['uuid']} 时出现错误！跳过恢复")
 
-    async def retry(self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info):
+    async def retry(
+        self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info
+    ):
         """通过重试prompt让chatgpt重新构建json
 
         :param ai_answer: ai返回的内容
@@ -179,9 +189,7 @@ class AskAI(BaseChain):
         :param video_info: 视频信息
         :return: None
         """
-        _LOGGER.error(
-            f"任务{task.uuid}：真不好意思！但是我ask_ai部分的retry还没写！所以只能先全给你设置成错误结束了嘿嘿嘿"
-        )
+        _LOGGER.error(f"任务{task.uuid}：真不好意思！但是我ask_ai部分的retry还没写！所以只能先全给你设置成错误结束了嘿嘿嘿")
         await self._set_err_end(
             msg="重试代码未实现，跳过",
             task=task,

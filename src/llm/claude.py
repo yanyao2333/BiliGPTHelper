@@ -14,7 +14,9 @@ _LOGGER = LOGGER.bind(name="aiproxy_claude")
 class AiproxyClaude(LLMBase):
     def prepare(self):
         mask_key = self.config.LLMs.aiproxy_claude.api_key[:-5] + "*****"
-        _LOGGER.info(f"初始化AIProxyClaude，api_key为{mask_key}，api端点为{self.config.LLMs.aiproxy_claude.api_base}")
+        _LOGGER.info(
+            f"初始化AIProxyClaude，api_key为{mask_key}，api端点为{self.config.LLMs.aiproxy_claude.api_base}"
+        )
 
     async def completion(self, prompt, **kwargs) -> Tuple[str, int] | None:
         """调用claude的Completion API
@@ -59,11 +61,23 @@ class AiproxyClaude(LLMBase):
     ) -> str | None:
         try:
             template_user = user_template_name.value
-            template_system = system_template_name.value if system_template_name else None
+            template_system = (
+                system_template_name.value if system_template_name else None
+            )
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = parse_prompt(template_system, **kwargs) if template_system else None
+            stemplate = (
+                parse_prompt(template_system, **kwargs) if template_system else None
+            )
             prompt = f"I will give you 'rules' 'content' two tags. You need to follow the rules!  <content>{utemplate}</content> <rules>{stemplate}</rules>"
-            prompt = anthropic.HUMAN_PROMPT + " " + prompt + " " + anthropic.AI_PROMPT + " " + '{"'
+            prompt = (
+                anthropic.HUMAN_PROMPT
+                + " "
+                + prompt
+                + " "
+                + anthropic.AI_PROMPT
+                + " "
+                + '{"'
+            )
             _LOGGER.info("使用模板成功")
             _LOGGER.debug(f"生成的prompt为：{prompt}")
             return prompt
