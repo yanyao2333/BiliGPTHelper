@@ -77,7 +77,7 @@ class Spark(LLMBase):
             await ws.close()
             if code == 10013 or code == 10014:
                 self._once_total_tokens = 0
-                self._answer_temp = """{"summary":"🈲🈲🈲我也很想告诉你视频的总结，但是星火却跟我说这个视频的总结是***，真的是离谱他🐎给离谱开门——离谱到家了。我也没有办法，谁让星火可以白嫖500w个token🐷。","score":"0","thinking":"🤡老子是真的服了这个讯飞星火，草(一种动作)。","if_no_need_summary": false}"""
+                self._answer_temp = """{"summary":"我也很想告诉你视频的总结，但是星火却跟我说这个视频的总结是***，真的是离谱他🐎给离谱开门——离谱到家了。我也没有办法，谁让星火可以白嫖500w个token🐷。","score":"0","thinking":"🤡老子是真的服了这个讯飞星火，草(一种动作)。","if_no_need_summary": false}"""
                 return 0
             return 2
         else:
