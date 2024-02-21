@@ -206,6 +206,8 @@ class Spark(LLMBase):
 请按照以下JSON格式回复：{"answer": "你的回答", "score": "你对回答质量的自我评分(0-100)"}
 !!!只允许使用双引号的纯JSON内容！请使用中文！不要添加任何其他内容!!!
 """
+            elif user_template_name.name == "SUMMARIZE_RETRY":
+                template_user = """请将以下文本翻译成此JSON格式并返回给我，不要添加任何其他内容。如果不存在 'summary' 字段，请将 'if_no_need_summary' 设置为 true。如果除 'summary' 之外的字段缺失，则可以忽略并留空， 'if_no_need_summary' 保持 false\n\n标准JSON格式：{"summary": "您的摘要内容", "score": "您给这个视频的评分（最高100分）", "thinking": "您的想法", "if_no_need_summary": "是否需要摘要？填写布尔值"}\n\n我的内容：[input]"""
             else:
                 template_user = user_template_name.value
             utemplate = parse_prompt(template_user, **kwargs)
