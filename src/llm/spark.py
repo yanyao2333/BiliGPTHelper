@@ -128,7 +128,7 @@ class Spark(LLMBase):
                 _answer = _answer.replace("false", "False")
                 _answer = ast.literal_eval(_answer)  # 骚操作
                 _answer = json.dumps(_answer, ensure_ascii=False)
-                _LOGGER.debug(f"经简单处理后的返回结果为：{self._answer_temp}")
+                _LOGGER.debug(f"经简单处理后的返回结果为：{_answer}")
                 return _answer, self._once_total_tokens
             except Exception as e:
                 _LOGGER.error(f"尝试使用eval方式解析星火返回的json失败：{e}")
