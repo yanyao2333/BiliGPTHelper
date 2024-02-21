@@ -52,7 +52,9 @@ class Spark(LLMBase):
 
         authorization_origin = f'api_key="{self.config.LLMs.spark.api_key}", algorithm="hmac-sha256", headers="host date request-line", signature="{signature_sha_base64}"'
 
-        authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode(encoding="utf-8")
+        authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode(
+            encoding="utf-8"
+        )
 
         # 将请求的鉴权参数组合为字典
         v = {"authorization": authorization, "date": date, "host": host}
@@ -74,15 +76,20 @@ class Spark(LLMBase):
         if code != 0:
             _LOGGER.error(f"讯飞星火大模型请求失败:    错误代码：{code}  返回内容：{data}")
             await ws.close()
+            if code == 10013 or code == 10014:
+                self._once_total_tokens = 0
+                self._answer_temp = """{"summary":"🈲🈲🈲我也很想告诉你视频的总结，但是星火却跟我说这个视频的总结是***，真的是离谱他🐎给离谱开门——离谱到家了。我也没有办法，谁让星火可以白嫖500w个token🐷。","score":"0","thinking":"🤡老子是真的服了这个讯飞星火，草(一种动作)。","if_no_need_summary": false}"""
+                return 0
             return 2
-
         else:
             choices = data["payload"]["choices"]
             status = choices["status"]
             content = choices["text"][0]["content"]
             self._answer_temp += content
             if status == 2:
-                self._once_total_tokens = data["payload"]["usage"]["text"]["total_tokens"]
+                self._once_total_tokens = data["payload"]["usage"]["text"][
+                    "total_tokens"
+                ]
                 await ws.close()
                 return 0
             return 1
@@ -114,10 +121,19 @@ class Spark(LLMBase):
                 self._answer_temp = self._answer_temp[7:]
             if self._answer_temp.endswith("```"):
                 self._answer_temp = self._answer_temp[:-3]
-            # TODO 星火返回的json永远是单引号包围的
-            self._answer_temp = ast.literal_eval(self._answer_temp)  # 骚操作
-            self._answer_temp = json.dumps(self._answer_temp, ensure_ascii=False)
-
+            # 星火返回的json永远是单引号包围的，下面尝试使用eval方式解析
+            try:
+                _answer = self._answer_temp
+                _answer = _answer.replace("true", "True")
+                _answer = _answer.replace("false", "False")
+                _answer = ast.literal_eval(_answer)  # 骚操作
+                _answer = json.dumps(_answer, ensure_ascii=False)
+                _LOGGER.debug(f"经简单处理后的返回结果为：{self._answer_temp}")
+                return _answer, self._once_total_tokens
+            except Exception as e:
+                _LOGGER.error(f"尝试使用eval方式解析星火返回的json失败：{e}")
+                traceback.print_exc()
+            # 如果eval方式解析失败，直接返回
             _LOGGER.debug(f"经简单处理后的返回结果为：{self._answer_temp}")
             return self._answer_temp, self._once_total_tokens
         except Exception as e:
@@ -135,7 +151,13 @@ class Spark(LLMBase):
             "header": {
                 "app_id": self.config.LLMs.spark.appid,
             },
-            "parameter": {"chat": {"domain": self.config.LLMs.spark.domain, "temperature": 0.5, "max_tokens": 8192}},
+            "parameter": {
+                "chat": {
+                    "domain": self.config.LLMs.spark.domain,
+                    "temperature": 0.5,
+                    "max_tokens": 8192,
+                }
+            },
             "payload": {"message": {"text": prompt_list}},
         }
         _LOGGER.debug(f"生成的参数为：{data}")
@@ -177,9 +199,7 @@ class Spark(LLMBase):
             else:
                 template_system = system_template_name.value
             if user_template_name.name == "SUMMARIZE_USER":
-                template_user = (
-                    """标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"""
-                )
+                template_user = """标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"""
             elif user_template_name.name == "ASK_AI_USER":
                 template_user = """
 标题: [title]\n\n简介: [description]\n\n字幕: [subtitle]\n\n用户问题: [question]\n\n
@@ -190,10 +210,14 @@ class Spark(LLMBase):
             else:
                 template_user = user_template_name.value
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = parse_prompt(template_system, **kwargs) if template_system else None
+            stemplate = (
+                parse_prompt(template_system, **kwargs) if template_system else None
+            )
             # final_template = utemplate + stemplate if stemplate else utemplate # 特殊处理，system附加到user后面
             prompt = (
-                build_openai_style_messages(utemplate, stemplate, user_keyword, system_keyword)
+                build_openai_style_messages(
+                    utemplate, stemplate, user_keyword, system_keyword
+                )
                 if stemplate
                 else build_openai_style_messages(utemplate, user_keyword=user_keyword)
                 # build_openai_style_messages(final_template, user_keyword=user_keyword)
