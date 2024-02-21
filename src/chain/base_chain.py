@@ -19,7 +19,9 @@ from src.models.config import Config
 from src.models.task import (
     BiliGPTTask,
     EndReasons,
-    ProcessStages, SummarizeAiResponse, AskAIResponse,
+    ProcessStages,
+    SummarizeAiResponse,
+    AskAIResponse,
 )
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
@@ -206,7 +208,9 @@ class BaseChain:
                 case "ask_ai":
                     cache = AskAIResponse.model_validate(cache)
                 case _:
-                    self._LOGGER.error(f"获取到了缓存，但无法匹配处理链{task.chain.value}，无法调取缓存，开始按正常流程处理")
+                    self._LOGGER.error(
+                        f"获取到了缓存，但无法匹配处理链{task.chain.value}，无法调取缓存，开始按正常流程处理"
+                    )
                     return False
             match task.source_type:
                 case "bili_private":

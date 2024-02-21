@@ -101,7 +101,9 @@ class BiliComment:
         return comment_str
 
     @staticmethod
-    def build_reply_content(response: Union[SummarizeAiResponse, AskAIResponse, str], user: str) -> str:
+    def build_reply_content(
+        response: Union[SummarizeAiResponse, AskAIResponse, str], user: str
+    ) -> str:
         """
         构建回复内容
 
@@ -112,7 +114,9 @@ class BiliComment:
         if isinstance(response, SummarizeAiResponse):
             return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【此次评论由 @{user} 邀请回答】"
         elif isinstance(response, AskAIResponse):
-            return f"【回答】{response.answer}\n【自我评分】{response.score}\n【此次评论由 @{user} 邀请回答】"
+            return (
+                f"【回答】{response.answer}\n【自我评分】{response.score}\n【此次评论由 @{user} 邀请回答】"
+            )
         elif isinstance(response, str):
             return response + f"\n【此次评论由 @{user} 邀请回答】"
         else:
@@ -145,9 +149,7 @@ class BiliComment:
                     oid = int(aid)
                     # root = data.source_extra_attr.source_id
                     user = data.raw_task_data["user"]["nickname"]
-                    text = BiliComment.build_reply_content(
-                        data.process_result, user
-                    )
+                    text = BiliComment.build_reply_content(data.process_result, user)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,

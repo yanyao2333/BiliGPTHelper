@@ -176,7 +176,9 @@ class Summarize(BaseChain):
                             answer = answer.replace("True", "true")
 
                             ai_resp = yaml.safe_load(answer)
-                            ai_resp["score"] = str(ai_resp["score"])  # 预防返回的值类型为int,强转成str
+                            ai_resp["score"] = str(
+                                ai_resp["score"]
+                            )  # 预防返回的值类型为int,强转成str
                             task.process_result = SummarizeAiResponse.model_validate(
                                 ai_resp
                             )
