@@ -166,7 +166,7 @@ class BaseChain:
                 _LOGGER.debug(f"任务{task.uuid}:私信消息，将结果放入私信处理队列")
                 await self.private_queue.put(reply_data)
             case "bili_comment":
-                _LOGGER.debug(f"任务{task.uuid}:评论消息，将结果放入评论处理队列")
+                _LOGGER.info(f"任务{task.uuid}:评论消息，将结果放入评论处理队列")
                 await self.reply_queue.put(reply_data)
             case "api":
                 _LOGGER.warning(f"任务{task.uuid}:api获取的消息，未实现处理逻辑")

@@ -158,7 +158,7 @@ class BiliComment:
                     )
                     if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
                         _LOGGER.debug(resp)
-                        _LOGGER.debug("发送评论成功，休息30秒")
+                        _LOGGER.info("发送评论成功，休息30秒")
                         await asyncio.sleep(30)
                         break  # 评论成功，退出当前任务的重试循环
                     _LOGGER.warning("发送评论失败，大概率被风控了，咱们歇会儿再试吧")

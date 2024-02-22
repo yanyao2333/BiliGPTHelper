@@ -147,7 +147,7 @@ class Summarize(BaseChain):
                     response = await llm.completion(prompt)
                     if response is None:
                         _LOGGER.warning(f"任务{task.uuid}：ai未返回任何内容，请自行检查问题，跳过处理")
-                        await self._set_err_end(msg="ai未返回任何内容，请自行检查问题，跳过处理", task=task)
+                        await self._set_err_end(msg="AI未返回任何内容，我也不知道为什么，估计是调休了吧。换个视频或者等一小会儿再试一试。", task=task)
                         self.llm_router.report_error(llm.alias)
                         continue
                     answer, tokens = response

@@ -77,7 +77,7 @@ class Spark(LLMBase):
             await ws.close()
             if code == 10013 or code == 10014:
                 self._once_total_tokens = 0
-                self._answer_temp = """{"summary":"我也很想告诉你视频的总结，但是星火却跟我说这个视频的总结是***，真的是离谱他🐎给离谱开门——离谱到家了。我也没有办法，谁让星火可以白嫖500w个token🐷。","score":"0","thinking":"🤡老子是真的服了这个讯飞星火，草(一种动作)。","if_no_need_summary": false}"""
+                self._answer_temp = """{"summary":"⚠⚠⚠我也很想告诉你视频的总结，但是星火却跟我说这个视频的总结是***，真的是离谱他🐎给离谱开门——离谱到家了。我也没有办法，谁让星火可以白嫖500w个token🐷。为了白嫖，忍一下，换个视频试一试！","score":"0","thinking":"🤡老子是真的服了这个讯飞星火，国际友好手势(一种动作)。","if_no_need_summary": false}"""
                 return 0
             return 2
         else:
@@ -111,7 +111,7 @@ class Spark(LLMBase):
                     if res == 2:
                         # 如果出现异常，直接返回（上层已经打印过错误，直接返回）
                         return None
-            _LOGGER.debug(
+            _LOGGER.info(
                 f"调用讯飞星火大模型成功，返回结果为：{self._answer_temp}，本次调用中，prompt+response的长度为{self._once_total_tokens}"
             )
 
