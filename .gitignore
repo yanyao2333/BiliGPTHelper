@@ -3,3 +3,4 @@ tests/.pytest_cache
 data/
 venv/
 config.yml
+openaidemo.py
