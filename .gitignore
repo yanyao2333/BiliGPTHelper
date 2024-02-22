@@ -2,5 +2,6 @@
 tests/.pytest_cache
 data/
 venv/
+__pycache__/
 config.yml
 openaidemo.py
