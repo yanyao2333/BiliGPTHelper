@@ -116,6 +116,7 @@ class BiliGPTTask(BaseModel):
     video_url: str  # 视频链接
     video_id: str  # bvid
     source_command: str  # 用户发送的原始指令（eg. "总结一下" "问一下：xxxxxxx"）
+    mission: bool = Field(default=False)  # 用户AT还是自发检测的标志
     command_params: Optional[AskAICommandParams] = None  # 用户原始指令经解析后的参数
     source_extra_attr: Optional[
         BiliAtSpecialAttributes

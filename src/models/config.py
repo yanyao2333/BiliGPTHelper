@@ -187,10 +187,20 @@ class StorageSettings(BaseModel):
         return value
 
 
+class BilibiliNickName(BaseModel):
+    nickname: str
+    @field_validator("*", mode="after")
+    def check_required_fields(cls, value):
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+
 class Config(BaseModel):
     """配置文件模型"""
 
     bilibili_cookie: BilibiliCookie
+    bilibili_self: BilibiliNickName
     chain_keywords: ChainKeywords
     LLMs: LLMs
     ASRs: ASRs

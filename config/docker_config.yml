@@ -41,6 +41,8 @@ LLMs:
     api_secret: '' # 你的api_secret
     domain: 'generalv3.5' # 要与spark_url对应
 
+bilibili_self:
+  nickname: ''
 
 bilibili_cookie: # https://nemo2011.github.io/bilibili-api/#/get-credential 获取cookie 下面五个值都要填
   SESSDATA: ''
