@@ -195,7 +195,7 @@ class StorageSettings(BaseModel):
 
 
 class BilibiliNickName(BaseModel):
-    nickname: str
+    nickname: str = "BiliBot"
 
     @field_validator("*", mode="after")
     def check_required_fields(cls, value):
