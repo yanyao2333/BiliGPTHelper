@@ -151,7 +151,12 @@ class Listen:
         self.uids = get_up_file(self.config.storage_settings.up_file)
         for item in self.uids:
             u = user.User(uid=item['uid'])
-            media_list = await u.get_media_list(ps=1, desc=True)
+            try:
+                media_list = await u.get_media_list(ps=1, desc=True)
+            except Exception:
+                traceback.print_exc()
+                _LOGGER.error(f"在获取 uid{item} 的视频列表时出错！")
+                return None
             media = media_list['media_list'][0]
             bv_id = media['bv_id']
             _LOGGER.info(f"当前视频的bvid：{bv_id}")
