@@ -17,11 +17,11 @@ from src.core.routers.asr_router import ASRouter
 from src.core.routers.llm_router import LLMRouter
 from src.models.config import Config
 from src.models.task import (
+    AskAIResponse,
     BiliGPTTask,
     EndReasons,
     ProcessStages,
     SummarizeAiResponse,
-    AskAIResponse,
 )
 from src.utils.cache import Cache
 from src.utils.logging import LOGGER
@@ -194,17 +194,13 @@ class BaseChain:
         await self._set_normal_end(task)
         return True
 
-    async def _is_cached_video(
-        self, task: BiliGPTTask, _uuid: str, video_info: dict
-    ) -> bool:
+    async def _is_cached_video(self, task: BiliGPTTask, _uuid: str, video_info: dict) -> bool:
         """检查是否是缓存的视频
         如果是缓存的视频，直接从缓存中获取结果并发送
         """
         if self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value)):
             LOGGER.debug(f"视频{video_info['title']}已经处理过，直接使用缓存")
-            cache = self.cache.get_cache(
-                key=video_info["bvid"], chain=str(task.chain.value)
-            )
+            cache = self.cache.get_cache(key=video_info["bvid"], chain=str(task.chain.value))
             # if str(task.chain.value) == "summarize":
             #     cache = SummarizeAiResponse.model_validate(cache)
             # elif str(task.chain.value) == "ask_ai":
@@ -260,15 +256,11 @@ class BaseChain:
             await self._set_err_end(msg="视频分P，跳过处理", task=task)
             return None
         # 获取视频标签
-        video_tags_string = " ".join(
-            f"#{tag['tag_name']}" for tag in await video.get_video_tags()
-        )
+        video_tags_string = " ".join(f"#{tag['tag_name']}" for tag in await video.get_video_tags())
         _LOGGER.debug("视频标签获取成功，开始获取视频评论")
         # 获取视频评论
         video_comments = (
-            await BiliComment.get_random_comment(video_info["aid"], self.credential)
-            if if_get_comments
-            else None
+            await BiliComment.get_random_comment(video_info["aid"], self.credential) if if_get_comments else None
         )
         return video, video_info, format_video_name, video_tags_string, video_comments
 
@@ -287,9 +279,7 @@ class BaseChain:
             text += f"{subtitle['content']}\n"
         return text
 
-    async def _get_subtitle_from_asr(
-        self, video: BiliVideo, _uuid: str, is_retry: bool = False
-    ) -> Optional[str]:
+    async def _get_subtitle_from_asr(self, video: BiliVideo, _uuid: str, is_retry: bool = False) -> Optional[str]:
         _LOGGER = self._LOGGER
         if self.asr is None:
             _LOGGER.warning("没有可用的asr，跳过处理")
@@ -306,9 +296,7 @@ class BaseChain:
             if text is None:
                 _LOGGER.warning("音频转写失败，报告并重试")
                 self.asr_router.report_error(self.asr.alias)
-                await self._get_subtitle_from_asr(
-                    video, _uuid, is_retry=True
-                )  # 递归，应该不会爆栈
+                await self._get_subtitle_from_asr(video, _uuid, is_retry=True)  # 递归，应该不会爆栈
             return text
         _LOGGER.debug("正在获取视频音频流")
         video_download_url = await video.get_video_download_url()
@@ -325,11 +313,7 @@ class BaseChain:
                 f.write(resp.content)
         _LOGGER.debug("视频中的音频流下载成功，正在转换音频格式")
         # 转换音频格式
-        (
-            ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s")
-            .output(f"{temp_dir}/{bvid} temp.mp3")
-            .run(overwrite_output=True)
-        )
+        (ffmpeg.input(f"{temp_dir}/{bvid} temp.m4s").output(f"{temp_dir}/{bvid} temp.mp3").run(overwrite_output=True))
         _LOGGER.debug("音频格式转换成功，正在使用whisper转写音频")
         # 使用whisper转写音频
         audio_path = f"{temp_dir}/{bvid} temp.mp3"
@@ -359,9 +343,7 @@ class BaseChain:
             _LOGGER.warning(f"视频{format_video_name}没有字幕，开始使用asr转写，这可能会导致字幕质量下降")
             text = await self._get_subtitle_from_asr(video, _uuid)
             task.subtitle = text
-            self.task_status_recorder.update_record(
-                _uuid, new_task_data=task, use_whisper=True
-            )
+            self.task_status_recorder.update_record(_uuid, new_task_data=task, use_whisper=True)
             return text
         _LOGGER.debug(f"视频{format_video_name}有字幕，开始处理")
         text = await self._get_subtitle_from_bilibili(video)

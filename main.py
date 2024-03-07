@@ -95,9 +95,7 @@ class BiliGPTPipeline:
 
             # 恢复队列任务
             _LOGGER.info("正在恢复队列信息")
-            _injector.get(QueueManager).recover_queue(
-                _injector.get(Config).storage_settings.queue_save_dir
-            )
+            _injector.get(QueueManager).recover_queue(_injector.get(Config).storage_settings.queue_save_dir)
 
             # 初始化at侦听器
             _LOGGER.info("正在初始化at侦听器")
@@ -127,9 +125,7 @@ class BiliGPTPipeline:
             # 启动定时任务调度器
             _LOGGER.info("正在启动定时任务调度器")
             _injector.get(AsyncIOScheduler).start()
-            _injector.get(AsyncIOScheduler).add_listener(
-                scheduler_error_callback, EVENT_JOB_ERROR
-            )
+            _injector.get(AsyncIOScheduler).add_listener(scheduler_error_callback, EVENT_JOB_ERROR)
 
             # 启动处理链
             _LOGGER.info("正在启动处理链")

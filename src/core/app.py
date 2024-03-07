@@ -76,9 +76,7 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_credential(
-        self, config: Config, scheduler: AsyncIOScheduler
-    ) -> BiliCredential:
+    def provide_credential(self, config: Config, scheduler: AsyncIOScheduler) -> BiliCredential:
         _LOGGER.info("正在初始化cookie")
         return BiliCredential(
             SESSDATA=config.bilibili_cookie.SESSDATA,
@@ -107,9 +105,7 @@ class BiliGPT(Module):
 
     @singleton
     @provider
-    def provide_chain_router(
-        self, config: Config, queue_manager: QueueManager
-    ) -> ChainRouter:
+    def provide_chain_router(self, config: Config, queue_manager: QueueManager) -> ChainRouter:
         _LOGGER.info("正在初始化Chain路由器")
         router = ChainRouter(config, queue_manager)
         return router
@@ -121,9 +117,7 @@ class BiliGPT(Module):
         return AsyncIOScheduler(timezone="Asia/Shanghai")
 
     @provider
-    def provide_queue(
-        self, queue_manager: QueueManager, queue_name: str
-    ) -> asyncio.Queue:
+    def provide_queue(self, queue_manager: QueueManager, queue_name: str) -> asyncio.Queue:
         _LOGGER.info(f"正在初始化队列 {queue_name}")
         return queue_manager.get_queue(queue_name)
 

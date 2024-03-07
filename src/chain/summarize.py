@@ -116,9 +116,7 @@ class Summarize(BaseChain):
                         text = task.subtitle
                         _LOGGER.debug("使用字幕缓存，开始使用模板生成prompt")
                     else:
-                        text = await self._smart_get_subtitle(
-                            video, _item_uuid, format_video_name, task
-                        )
+                        text = await self._smart_get_subtitle(video, _item_uuid, format_video_name, task)
                         if text is None:
                             continue
                         task.subtitle = text
@@ -150,7 +148,10 @@ class Summarize(BaseChain):
                     response = await llm.completion(prompt)
                     if response is None:
                         _LOGGER.warning(f"任务{task.uuid}：ai未返回任何内容，请自行检查问题，跳过处理")
-                        await self._set_err_end(msg="AI未返回任何内容，我也不知道为什么，估计是调休了吧。换个视频或者等一小会儿再试一试。", task=task)
+                        await self._set_err_end(
+                            msg="AI未返回任何内容，我也不知道为什么，估计是调休了吧。换个视频或者等一小会儿再试一试。",
+                            task=task,
+                        )
                         self.llm_router.report_error(llm.alias)
                         continue
                     answer, tokens = response
@@ -173,22 +174,14 @@ class Summarize(BaseChain):
                             if task.process_stage == ProcessStages.WAITING_RETRY:
                                 raise Exception("触发重试")
 
-                            answer = answer.replace(
-                                "False", "false"
-                            )  # 解决一部分因为大小写问题导致的json解析失败
+                            answer = answer.replace("False", "false")  # 解决一部分因为大小写问题导致的json解析失败
                             answer = answer.replace("True", "true")
 
                             ai_resp = yaml.safe_load(answer)
-                            ai_resp["score"] = str(
-                                ai_resp["score"]
-                            )  # 预防返回的值类型为int,强转成str
-                            task.process_result = SummarizeAiResponse.model_validate(
-                                ai_resp
-                            )
+                            ai_resp["score"] = str(ai_resp["score"])  # 预防返回的值类型为int,强转成str
+                            task.process_result = SummarizeAiResponse.model_validate(ai_resp)
                             if task.process_result.if_no_need_summary is True:
-                                _LOGGER.warning(
-                                    f"视频{format_video_name}被ai判定为不需要摘要，跳过处理"
-                                )
+                                _LOGGER.warning(f"视频{format_video_name}被ai判定为不需要摘要，跳过处理")
                                 await BiliSession.quick_send(
                                     self.credential,
                                     task,
@@ -222,9 +215,7 @@ class Summarize(BaseChain):
         except asyncio.CancelledError:
             _LOGGER.info("收到关闭信号，摘要处理链关闭")
 
-    async def retry(
-        self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info
-    ):
+    async def retry(self, ai_answer, task: BiliGPTTask, format_video_name, begin_time, video_info):
         """通过重试prompt让chatgpt重新构建json
 
         :param ai_answer: ai返回的内容

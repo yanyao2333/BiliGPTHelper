@@ -1,5 +1,4 @@
 import os
-from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -163,28 +162,16 @@ class ASRs(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    cache_path: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True
-    )
-    temp_dir: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True
-    )
-    task_status_records: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True
-    )
+    cache_path: str = Field(default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True)
+    temp_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True)
+    task_status_records: str = Field(default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True)
     statistics_dir: str = Field(
         default_factory=lambda: os.getenv("DOCKER_STATISTICS_DIR"),
         validate_default=True,
     )
-    queue_save_dir: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True
-    )
-    up_video_cache: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_UP_VIDEO_CACHE"), validate_default=True
-    )
-    up_file: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_UP_FILE"), validate_default=True
-    )
+    queue_save_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True)
+    up_video_cache: str = Field(default_factory=lambda: os.getenv("DOCKER_UP_VIDEO_CACHE"), validate_default=True)
+    up_file: str = Field(default_factory=lambda: os.getenv("DOCKER_UP_FILE"), validate_default=True)
 
     # noinspection PyMethodParameters
     @field_validator("*", mode="after")

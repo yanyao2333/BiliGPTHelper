@@ -51,9 +51,7 @@ class Spark(LLMBase):
 
         authorization_origin = f'api_key="{self.config.LLMs.spark.api_key}", algorithm="hmac-sha256", headers="host date request-line", signature="{signature_sha_base64}"'
 
-        authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode(
-            encoding="utf-8"
-        )
+        authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode(encoding="utf-8")
 
         # 将请求的鉴权参数组合为字典
         v = {"authorization": authorization, "date": date, "host": host}
@@ -86,9 +84,7 @@ class Spark(LLMBase):
             content = choices["text"][0]["content"]
             self._answer_temp += content
             if status == 2:
-                self._once_total_tokens = data["payload"]["usage"]["text"][
-                    "total_tokens"
-                ]
+                self._once_total_tokens = data["payload"]["usage"]["text"]["total_tokens"]
                 await ws.close()
                 return 0
             return 1
@@ -198,7 +194,9 @@ class Spark(LLMBase):
             else:
                 template_system = system_template_name.value
             if user_template_name.name == "SUMMARIZE_USER":
-                template_user = """标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"""
+                template_user = (
+                    """标题：[title]\n\n简介：[description]\n\n字幕：[subtitle]\n\n标签：[tags]\n\n评论：[comments]"""
+                )
             elif user_template_name.name == "ASK_AI_USER":
                 template_user = """
 标题: [title]\n\n简介: [description]\n\n字幕: [subtitle]\n\n用户问题: [question]\n\n
@@ -211,14 +209,10 @@ class Spark(LLMBase):
             else:
                 template_user = user_template_name.value
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = (
-                parse_prompt(template_system, **kwargs) if template_system else None
-            )
+            stemplate = parse_prompt(template_system, **kwargs) if template_system else None
             # final_template = utemplate + stemplate if stemplate else utemplate # 特殊处理，system附加到user后面
             prompt = (
-                build_openai_style_messages(
-                    utemplate, stemplate, user_keyword, system_keyword
-                )
+                build_openai_style_messages(utemplate, stemplate, user_keyword, system_keyword)
                 if stemplate
                 else build_openai_style_messages(utemplate, user_keyword=user_keyword)
                 # build_openai_style_messages(final_template, user_keyword=user_keyword)

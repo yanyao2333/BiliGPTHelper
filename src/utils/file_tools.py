@@ -31,9 +31,7 @@ def read_file(file_path: str, mode: str = "r", encoding: str = "utf-8"):
         return f_r.read()
 
 
-def save_file(
-    content: str, file_path: str, mode: str = "w", encoding: str = "utf-8"
-) -> bool:
+def save_file(content: str, file_path: str, mode: str = "w", encoding: str = "utf-8") -> bool:
     """
     保存一个文件，如果不存在就创建这个文件及其所有中间路径
     :param content:

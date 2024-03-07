@@ -1,4 +1,5 @@
 """llm对接的基础类"""
+
 import abc
 import re
 import traceback
@@ -71,17 +72,11 @@ class LLMBase:
         """
         try:
             template_user = user_template_name.value
-            template_system = (
-                system_template_name.value if system_template_name else None
-            )
+            template_system = system_template_name.value if system_template_name else None
             utemplate = parse_prompt(template_user, **kwargs)
-            stemplate = (
-                parse_prompt(template_system, **kwargs) if template_system else None
-            )
+            stemplate = parse_prompt(template_system, **kwargs) if template_system else None
             prompt = (
-                build_openai_style_messages(
-                    utemplate, stemplate, user_keyword, system_keyword
-                )
+                build_openai_style_messages(utemplate, stemplate, user_keyword, system_keyword)
                 if stemplate
                 else build_openai_style_messages(utemplate, user_keyword=user_keyword)
             )

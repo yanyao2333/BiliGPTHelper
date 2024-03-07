@@ -33,9 +33,7 @@ class BiliVideo:
         if self.video_obj:
             return self.video_obj, _type
         if self.url:
-            self.video_obj, _type = await parse_link(
-                self.url, credential=self.credential
-            )
+            self.video_obj, _type = await parse_link(self.url, credential=self.credential)
         elif self.aid:
             self.video_obj = video.Video(aid=self.aid, credential=self.credential)
         elif self._bvid:

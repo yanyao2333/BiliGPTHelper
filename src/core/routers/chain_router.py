@@ -31,24 +31,18 @@ class ChainRouter:
 
         match content:
             case content if any(keyword in content for keyword in summarize_keyword):
-                keyword = next(
-                    keyword for keyword in summarize_keyword if keyword in content
-                )
+                keyword = next(keyword for keyword in summarize_keyword if keyword in content)
                 _LOGGER.info(f"检测到关键字 {keyword} ，放入【总结】队列")
                 task.chain = Chains.SUMMARIZE
                 _LOGGER.debug(task)
                 await self.summarize_queue.put(task)
                 return
             case content if any(keyword in content for keyword in ask_ai_keyword):
-                keyword = next(
-                    keyword for keyword in ask_ai_keyword if keyword in content
-                )
+                keyword = next(keyword for keyword in ask_ai_keyword if keyword in content)
                 _LOGGER.info(f"任务{task.uuid}：检测到关键字 {keyword} ，开始解析参数：冒号后的问题")
                 match = re.search(r"[:：](.*)", content)
                 if match:
-                    ask_ai_params = AskAICommandParams.model_validate(
-                        {"question": match.group(1)}
-                    )
+                    ask_ai_params = AskAICommandParams.model_validate({"question": match.group(1)})
                     task.command_params = ask_ai_params
                 else:
                     _LOGGER.warning(f"任务{task.uuid}：没找到冒号，无法提取问题参数，跳过")

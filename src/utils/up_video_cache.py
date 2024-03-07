@@ -1,4 +1,5 @@
 import json
+
 from src.utils.exceptions import LoadJsonError
 from src.utils.file_tools import read_file, save_file
 from src.utils.logging import LOGGER
@@ -26,6 +27,6 @@ def set_cache(file_path, cache, data: dict, key: str):
 
 
 def get_up_file(file_path):
-    with open(file_path, 'r', encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         up_list = json.loads(f.read())
-    return up_list['all_area']
+    return up_list["all_area"]
