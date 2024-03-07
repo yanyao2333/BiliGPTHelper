@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from bilibili_api import session,user
+from bilibili_api import session, user
 from injector import inject
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
@@ -18,7 +18,7 @@ from src.models.config import Config
 from src.models.task import BiliAtSpecialAttributes, BiliGPTTask
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
-
+from src.utils.up_video_cache import load_cache, set_cache, get_up_file
 _LOGGER = LOGGER.bind(name="bilibili-listener")
 
 
@@ -43,8 +43,8 @@ class Listen:
         self.config = config
         self.chain_router = chain_router
         # 以下是自动查询视频更新的参数
-        self.cache_path = './data/video_cache.json'
-        self.up_file_path = './data/up.json'
+        # self.cache_path = './data/video_cache.json'
+        # self.up_file_path = './data/up.json'
         self.chain_router = chain_router
         self.uids = {}
         self.video_cache = {}
@@ -110,7 +110,7 @@ class Listen:
             event["sender_id"] = str(event["user"]["mid"])
             event["video_url"] = event["item"]["uri"]
             event["source_command"] = event["item"]["source_content"]
-            event["mission"] = False
+            # event["mission"] = False
             event["video_id"] = await BiliVideo(
                 credential=self.credential, url=event["item"]["uri"]
             ).bvid
@@ -138,7 +138,7 @@ class Listen:
         self.sched.add_job(
             self.async_video_list_mission,
             trigger="interval",
-            minutes=60,
+            seconds=10,   # minutes=60,
             id="video_list_mission",
             max_instances=3,
             next_run_time=datetime.now(),
@@ -147,8 +147,8 @@ class Listen:
 
     async def async_video_list_mission(self):
         _LOGGER.info(f"开始执行获取UP的最新视频")
-        self.video_cache = self.get_cache()
-        self.uids = self.get_up_file()
+        self.video_cache = load_cache(self.config.storage_settings.up_video_cache)
+        self.uids = get_up_file(self.config.storage_settings.up_file)
         for item in self.uids:
             u = user.User(uid=item['uid'])
             media_list = await u.get_media_list(ps=1, desc=True)
@@ -168,7 +168,8 @@ class Listen:
                     if task_metadata is None:
                         continue
                     await self.chain_router.dispatch_a_task(task_metadata)
-                    self.set_cache({'bv_id': bv_id, 'oid': oid}, str(item['uid']))
+                    set_cache(self.config.storage_settings.up_video_cache, self.video_cache,
+                              {'bv_id': bv_id, 'oid': oid}, str(item['uid']))
 
                 else:
                     _LOGGER.info(f"up没有视频更新")
@@ -184,7 +185,7 @@ class Listen:
         try:
             # event = deepcopy(msg)
             event: dict = {}
-            event["source_type"] = "bili_comment"
+            event["source_type"] = "bili_up"
             event["raw_task_data"] = {
                 "user": {
                     "mid": self.config.bilibili_cookie.dedeuserid,
@@ -207,7 +208,7 @@ class Listen:
             event["video_url"] = msg['short_link']
             event["source_command"] = f"@{self.config.bilibili_self.nickname} 总结一下"
             event["video_id"] = msg['bv_id']
-            event["mission"] = True
+            # event["mission"] = True
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
             traceback.print_exc()
@@ -228,7 +229,7 @@ class Listen:
             event["video_url"] = uri
             event["source_command"] = event["text_event"]["content"][12:]  # 去除掉bv号
             event["video_id"] = bvid
-            event["mission"] = False
+            # event["mission"] = False
             del event["video_event"]
             del event["text_event"]
             del event["status"]
@@ -367,19 +368,19 @@ class Listen:
         self.sess.close()
         _LOGGER.info("私聊侦听已关闭")
 
-    def get_cache(self):
-        with open(self.cache_path, 'r', encoding="utf-8") as f:
-            cache = json.loads(f.read())
-        return cache
+    # def get_cache(self):
+    #     with open(self.cache_path, 'r', encoding="utf-8") as f:
+    #         cache = json.loads(f.read())
+    #     return cache
+    #
+    # def set_cache(self, data: dict, key: str):
+    #     if key not in self.video_cache:
+    #         self.video_cache[key] = {}
+    #     self.video_cache[key] = data
+    #     with open(self.cache_path, "w") as file:
+    #         file.write(json.dumps(self.video_cache, ensure_ascii=False, indent=4))
 
-    def set_cache(self, data: dict, key: str):
-        if key not in self.video_cache:
-            self.video_cache[key] = {}
-        self.video_cache[key] = data
-        with open(self.cache_path, "w") as file:
-            file.write(json.dumps(self.video_cache, ensure_ascii=False, indent=4))
-
-    def get_up_file(self):
-        with open(self.up_file_path, 'r', encoding="utf-8") as f:
-            up_list = json.loads(f.read())
-        return up_list['all_area']
+    # def get_up_file(self):
+    #     with open(self.up_file_path, 'r', encoding="utf-8") as f:
+    #         up_list = json.loads(f.read())
+    #     return up_list['all_area']

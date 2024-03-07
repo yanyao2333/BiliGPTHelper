@@ -109,14 +109,14 @@ class AskAICommandParams(BaseModel):
 class BiliGPTTask(BaseModel):
     """单任务全生命周期的数据模型 用于替代其他所有的已有类型"""
 
-    source_type: Annotated[str, StringConstraints(pattern=r"^(bili_comment|bili_private|api)$")]  # type: ignore # 设置task的获取来源
+    source_type: Annotated[str, StringConstraints(pattern=r"^(bili_comment|bili_private|api|bili_up)$")]  # type: ignore # 设置task的获取来源
     raw_task_data: dict  # 原始的task数据，包含所有信息
     sender_id: int  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
     # video_title: str  # 视频标题
     video_url: str  # 视频链接
     video_id: str  # bvid
     source_command: str  # 用户发送的原始指令（eg. "总结一下" "问一下：xxxxxxx"）
-    mission: bool = Field(default=False)  # 用户AT还是自发检测的标志
+    # mission: bool = Field(default=False)  # 用户AT还是自发检测的标志
     command_params: Optional[AskAICommandParams] = None  # 用户原始指令经解析后的参数
     source_extra_attr: Optional[
         BiliAtSpecialAttributes

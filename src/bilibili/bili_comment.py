@@ -102,23 +102,23 @@ class BiliComment:
 
     @staticmethod
     def build_reply_content(
-        response: Union[SummarizeAiResponse, AskAIResponse, str], user: str, mission: bool
+        response: Union[SummarizeAiResponse, AskAIResponse, str], user: str, source_type: str
     ) -> str:
         """
         构建回复内容
-        :param mission: 是否由用户发起
+        :param source_type: task来源
         :param user: 用户名
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        if mission:
+        if source_type == 'bili_up':
             if isinstance(response, SummarizeAiResponse):
-                return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【🍺🍺🍺此次评论自动发起。关注我，解锁更多视频总结】"
+                return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
             elif isinstance(response, str):
-                return response + f"\n【🍺🍺🍺此次评论自动发起。关注我，解锁更多视频总结】"
+                return response + f"\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
             else:
-                return f"程序内部错误：无法识别的回复类型{type(response)}\n【🍺🍺🍺此次评论自动发起。关注我，解锁更多视频总结】"
-        else:
+                return f"程序内部错误：无法识别的回复类型{type(response)}\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
+        elif source_type == 'bili_comment':
             if isinstance(response, SummarizeAiResponse):
                 return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【👉此次评论由 @{user} 邀请回答】"
             elif isinstance(response, AskAIResponse):
@@ -157,8 +157,8 @@ class BiliComment:
                     oid = int(aid)
                     # root = data.source_extra_attr.source_id
                     user = data.raw_task_data["user"]["nickname"]
-                    mission = data.mission
-                    text = BiliComment.build_reply_content(data.process_result, user, mission)
+                    source_type = data.source_type
+                    text = BiliComment.build_reply_content(data.process_result, user, source_type)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,

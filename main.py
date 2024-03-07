@@ -117,8 +117,9 @@ class BiliGPTPipeline:
             _LOGGER.info("正在启动视频更新检测侦听器")
             listen.start_video_mission()
 
-            _LOGGER.info("启动私信侦听器")
-            await listen.listen_private()
+            # 默认关掉私信，私信太烧内存
+            # _LOGGER.info("启动私信侦听器")
+            # await listen.listen_private()
 
             _LOGGER.info("正在启动cookie过期检查和刷新")
             _injector.get(BiliCredential).start_check()

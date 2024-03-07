@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -178,6 +179,12 @@ class StorageSettings(BaseModel):
     queue_save_dir: str = Field(
         default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True
     )
+    up_video_cache: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_UP_VIDEO_CACHE"), validate_default=True
+    )
+    up_file: str = Field(
+        default_factory=lambda: os.getenv("DOCKER_UP_FILE"), validate_default=True
+    )
 
     # noinspection PyMethodParameters
     @field_validator("*", mode="after")
@@ -189,6 +196,18 @@ class StorageSettings(BaseModel):
 
 class BilibiliNickName(BaseModel):
     nickname: str
+
+    @field_validator("*", mode="after")
+    def check_required_fields(cls, value):
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+
+class UpFlow(BaseModel):
+    enable: bool
+    up_list: List[dict]
+
     @field_validator("*", mode="after")
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
@@ -205,4 +224,5 @@ class Config(BaseModel):
     LLMs: LLMs
     ASRs: ASRs
     storage_settings: StorageSettings
+    up_flow: UpFlow
     debug_mode: bool = True
