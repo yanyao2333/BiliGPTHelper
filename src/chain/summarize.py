@@ -31,6 +31,9 @@ class Summarize(BaseChain):
             case "api":
                 _LOGGER.debug("该消息是api消息，继续处理")
                 return True
+            case "bili_up":
+                _LOGGER.debug("该消息是up更新消息，继续处理")
+                return True
         # if task["item"]["type"] != "reply" or task["item"]["business_id"] != 1:
         #     _LOGGER.warning(f"该消息目前并不支持，跳过处理")
         #     self._set_err_end(_uuid, "该消息目前并不支持，跳过处理")
