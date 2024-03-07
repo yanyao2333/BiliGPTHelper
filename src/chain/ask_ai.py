@@ -28,6 +28,9 @@ class AskAI(BaseChain):
             case "api":
                 _LOGGER.debug("该消息是api消息，继续处理")
                 return True
+            case "bili_up":
+                _LOGGER.debug("该消息是评论消息，继续处理")
+                return True
         return False
 
     @tenacity.retry(

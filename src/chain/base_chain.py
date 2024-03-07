@@ -103,6 +103,10 @@ class BaseChain:
                 await self.reply_queue.put(task)
             case "api":
                 self._LOGGER.warning(f"任务{task.uuid}:api获取的消息，未实现处理逻辑")
+            case "bili_up":
+                _task.process_result = msg
+                self._LOGGER.debug(f"任务{task.uuid}:评论消息，将结果放入评论处理队列，内容：{msg}")
+                await self.reply_queue.put(task)
 
     async def _set_normal_end(self, task: BiliGPTTask = None, _uuid: str = None):
         """当一个视频正常结束时，调用此方法
@@ -170,6 +174,9 @@ class BaseChain:
                 await self.reply_queue.put(reply_data)
             case "api":
                 _LOGGER.warning(f"任务{task.uuid}:api获取的消息，未实现处理逻辑")
+            case "bili_up":
+                _LOGGER.info(f"任务{task.uuid}:评论消息，将结果放入评论处理队列")
+                await self.reply_queue.put(reply_data)
         _LOGGER.debug("处理结束，开始清理并提交记录")
         self.task_status_recorder.update_record(
             reply_data.uuid,
@@ -217,6 +224,9 @@ class BaseChain:
                     task.process_result = cache
                     await self.finish(task, True)
                 case "bili_comment":
+                    task.process_result = cache
+                    await self.finish(task, True)
+                case "bili_up":
                     task.process_result = cache
                     await self.finish(task, True)
             return True
