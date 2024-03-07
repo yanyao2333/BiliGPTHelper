@@ -138,7 +138,7 @@ class Listen:
         self.sched.add_job(
             self.async_video_list_mission,
             trigger="interval",
-            seconds=10,   # minutes=60,
+            minutes=60,   # minutes=60,
             id="video_list_mission",
             max_instances=3,
             next_run_time=datetime.now(),
