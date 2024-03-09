@@ -1,4 +1,5 @@
 """在config模板发生更新时 及时无损合并用户的config"""
+
 import ruamel.yaml
 
 # TODO 保持原有格式和注释

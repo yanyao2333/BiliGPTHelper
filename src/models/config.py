@@ -162,24 +162,28 @@ class ASRs(BaseModel):
 
 
 class StorageSettings(BaseModel):
-    cache_path: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True
-    )
-    temp_dir: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True
-    )
-    task_status_records: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True
-    )
+    cache_path: str = Field(default_factory=lambda: os.getenv("DOCKER_CACHE_FILE"), validate_default=True)
+    temp_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_TEMP_DIR"), validate_default=True)
+    task_status_records: str = Field(default_factory=lambda: os.getenv("DOCKER_RECORDS_DIR"), validate_default=True)
     statistics_dir: str = Field(
         default_factory=lambda: os.getenv("DOCKER_STATISTICS_DIR"),
         validate_default=True,
     )
-    queue_save_dir: str = Field(
-        default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True
-    )
+    queue_save_dir: str = Field(default_factory=lambda: os.getenv("DOCKER_QUEUE_DIR"), validate_default=True)
+    up_video_cache: str = Field(default_factory=lambda: os.getenv("DOCKER_UP_VIDEO_CACHE"), validate_default=True)
+    up_file: str = Field(default_factory=lambda: os.getenv("DOCKER_UP_FILE"), validate_default=True)
 
     # noinspection PyMethodParameters
+    @field_validator("*", mode="after")
+    def check_required_fields(cls, value):
+        if value is None or (isinstance(value, (str, list)) and not value):
+            raise ValueError(f"配置文件中{cls}字段为空，请检查配置文件")
+        return value
+
+
+class BilibiliNickName(BaseModel):
+    nickname: str = "BiliBot"
+
     @field_validator("*", mode="after")
     def check_required_fields(cls, value):
         if value is None or (isinstance(value, (str, list)) and not value):
@@ -191,6 +195,7 @@ class Config(BaseModel):
     """配置文件模型"""
 
     bilibili_cookie: BilibiliCookie
+    bilibili_self: BilibiliNickName
     chain_keywords: ChainKeywords
     LLMs: LLMs
     ASRs: ASRs

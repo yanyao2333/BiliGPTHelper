@@ -48,9 +48,7 @@ class TaskStatusRecorder:
     def save(self):
         # with open(self.file_path, "w", encoding="utf-8") as f:
         #     json.dump(self.video_records, f, ensure_ascii=False, indent=4)
-        save_file(
-            json.dumps(self.video_records, ensure_ascii=False, indent=4), self.file_path
-        )
+        save_file(json.dumps(self.video_records, ensure_ascii=False, indent=4), self.file_path)
 
     def get_record_by_stage(
         self,
@@ -68,10 +66,7 @@ class TaskStatusRecorder:
                     records.append(record)
             return records
         for record in self.video_records.values():
-            if (
-                record["process_stage"] == stage.value
-                and record["chain"] == chain.value
-            ):
+            if record["process_stage"] == stage.value and record["chain"] == chain.value:
                 records.append(record)
         return records
 
@@ -82,9 +77,7 @@ class TaskStatusRecorder:
         self.save()
         return item.uuid
 
-    def update_record(
-        self, _uuid: str, new_task_data: Union[BiliGPTTask, None], **kwargs
-    ) -> bool:
+    def update_record(self, _uuid: str, new_task_data: Union[BiliGPTTask, None], **kwargs) -> bool:
         """根据uuid更新记录"""
         # record: BiliGPTTask = self.video_records[_uuid]
         _uuid = str(_uuid)

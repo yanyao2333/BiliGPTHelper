@@ -95,9 +95,7 @@ class BiliGPTPipeline:
 
             # 恢复队列任务
             _LOGGER.info("正在恢复队列信息")
-            _injector.get(QueueManager).recover_queue(
-                _injector.get(Config).storage_settings.queue_save_dir
-            )
+            _injector.get(QueueManager).recover_queue(_injector.get(Config).storage_settings.queue_save_dir)
 
             # 初始化at侦听器
             _LOGGER.info("正在初始化at侦听器")
@@ -114,8 +112,12 @@ class BiliGPTPipeline:
             # 启动侦听器
             _LOGGER.info("正在启动at侦听器")
             listen.start_listen_at()
-            _LOGGER.info("启动私信侦听器")
-            await listen.listen_private()
+            _LOGGER.info("正在启动视频更新检测侦听器")
+            listen.start_video_mission()
+
+            # 默认关掉私信，私信太烧内存
+            # _LOGGER.info("启动私信侦听器")
+            # await listen.listen_private()
 
             _LOGGER.info("正在启动cookie过期检查和刷新")
             _injector.get(BiliCredential).start_check()
@@ -123,9 +125,7 @@ class BiliGPTPipeline:
             # 启动定时任务调度器
             _LOGGER.info("正在启动定时任务调度器")
             _injector.get(AsyncIOScheduler).start()
-            _injector.get(AsyncIOScheduler).add_listener(
-                scheduler_error_callback, EVENT_JOB_ERROR
-            )
+            _injector.get(AsyncIOScheduler).add_listener(scheduler_error_callback, EVENT_JOB_ERROR)
 
             # 启动处理链
             _LOGGER.info("正在启动处理链")
@@ -150,6 +150,11 @@ class BiliGPTPipeline:
 
             _LOGGER.info("摘要处理链、评论处理链、私信处理链启动完成")
 
+            # 定时执行指定up是否有更新视频，如果有自动回复
+            # mission = BiliMission(_injector.get(BiliCredential), _injector.get(AsyncIOScheduler))
+            # await mission.start()
+            # _LOGGER.info("创建刷新UP最新视频任务成功，刷新频率：60分钟")
+
             _LOGGER.success("🎉启动完成 enjoy it")
 
             while True:
@@ -170,6 +175,7 @@ class BiliGPTPipeline:
                     ask_ai_task.cancel()
                     comment_task.cancel()
                     private_task.cancel()
+                    # mission_task.cancel()
                     # _LOGGER.info("正在生成本次运行的统计报告")
                     # statistics_dir = _injector.get(Config).model_dump()["storage_settings"][
                     #     "statistics_dir"

@@ -23,6 +23,8 @@ ENV DOCKER_WHISPER_MODELS_DIR=/data/whisper-models
 ENV DOCKER_QUEUE_DIR=/data/queue.json
 ENV DOCKER_RECORDS_DIR=/data/records.json
 ENV DOCKER_STATISTICS_DIR=/data/statistics
+ENV DOCKER_UP_FILE=/data/up.json
+ENV DOCKER_UP_VIDEO_CACHE=/data/video_cache.json
 ENV RUNNING_IN_DOCKER yes
 
 FROM base as with_whisper

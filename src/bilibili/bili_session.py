@@ -39,9 +39,7 @@ class BiliSession:
         )
 
     @staticmethod
-    def build_reply_content(
-        response: Union[SummarizeAiResponse, AskAIResponse]
-    ) -> list:
+    def build_reply_content(response: Union[SummarizeAiResponse, AskAIResponse]) -> list:
         """构建回复内容（由于有私信消息过长被截断的先例，所以返回是一个list，分消息发）"""
         # TODO 有时还是会触碰到b站的字数墙，但不清楚字数限制是多少，再等等看
         # TODO 这种判断方式很不优雅，但现在是半夜十二点，我不想改了，我想睡觉了
@@ -67,9 +65,7 @@ class BiliSession:
             try:
                 data: BiliGPTTask = await self.private_queue.get()
                 _LOGGER.debug("获取到新的私信任务，开始处理")
-                _, _type = await BiliVideo(
-                    credential=self.credential, url=data.video_url
-                ).get_video_obj()
+                _, _type = await BiliVideo(credential=self.credential, url=data.video_url).get_video_obj()
                 msg_list = BiliSession.build_reply_content(data.process_result)
                 for msg in msg_list:
                     await session.send_msg(

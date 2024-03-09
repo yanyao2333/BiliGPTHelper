@@ -15,10 +15,7 @@ def merge_cache_to_new_version(cache_file_path: str) -> bool:
     try:
         content_dict: dict = json.loads(content)
         if content_dict:
-            if (
-                content_dict.get("summarize") is None
-                and content_dict.get("ask_ai") is None
-            ):
+            if content_dict.get("summarize") is None and content_dict.get("ask_ai") is None:
                 # 判断cache文件的内部结构，是否存在summarize或ask_ai键，全都不存在就是老版缓存，要转换
                 _LOGGER.warning("缓存似乎是旧版的，尝试转换为新格式")
                 _LOGGER.debug(f"备份老版缓存到{cache_file_path}.bak")

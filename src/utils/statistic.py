@@ -1,5 +1,6 @@
 # pylint: skip-file
 """根据任务状态记录生成统计信息"""
+
 import json
 import os
 from collections import Counter
@@ -54,9 +55,7 @@ def run_statistic(output_dir, data):
         if user_data:
             user_ids.append(user_data.get("mid", "未知"))
         elif private_msg_event:
-            user_ids.append(
-                private_msg_event.get("text_event", {}).get("sender_uid", "未知")
-            )
+            user_ids.append(private_msg_event.get("text_event", {}).get("sender_uid", "未知"))
 
         if private_msg_event:
             request_types.append("私信请求")
@@ -81,9 +80,7 @@ def run_statistic(output_dir, data):
 
     # Bar Chart for Error Reasons
     plt.figure(figsize=(8, 4))
-    bars = plt.barh(
-        list(error_reason_counts.keys()), list(error_reason_counts.values())
-    )
+    bars = plt.barh(list(error_reason_counts.keys()), list(error_reason_counts.values()))
     plt.xlabel("数量")
     plt.ylabel("错误原因")
     plt.title("错误原因排名")
@@ -105,9 +102,7 @@ def run_statistic(output_dir, data):
     plt.savefig(f"{output_folder}/错误原因排名竖状图.png")
 
     # Bar Chart for User Task Counts (Top 10)
-    top_10_users = dict(
-        sorted(user_id_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-    )
+    top_10_users = dict(sorted(user_id_counts.items(), key=lambda x: x[1], reverse=True)[:10])
     plt.figure(figsize=(8, 4))
     bars = plt.barh(list(map(str, top_10_users.keys())), list(top_10_users.values()))
     plt.xlabel("数量")

@@ -67,7 +67,9 @@ class AskAIResponse(BaseModel):
 class ProcessStages(Enum):
     """视频处理阶段"""
 
-    PREPROCESS = "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
+    PREPROCESS = (
+        "preprocess"  # 包括构建prompt之前都是这个阶段（包含获取信息、字幕读取），处在这个阶段恢复时就直接从头开始
+    )
     WAITING_LLM_RESPONSE = (
         "waiting_llm_response"  # 等待llm的回复 这个阶段应该重新加载字幕或从items中的whisper_subtitle节点读取
     )
@@ -109,24 +111,21 @@ class AskAICommandParams(BaseModel):
 class BiliGPTTask(BaseModel):
     """单任务全生命周期的数据模型 用于替代其他所有的已有类型"""
 
-    source_type: Annotated[str, StringConstraints(pattern=r"^(bili_comment|bili_private|api)$")]  # type: ignore # 设置task的获取来源
+    source_type: Annotated[str, StringConstraints(pattern=r"^(bili_comment|bili_private|api|bili_up)$")]  # type: ignore # 设置task的获取来源
     raw_task_data: dict  # 原始的task数据，包含所有信息
     sender_id: int  # task提交者的id，用于统计。来自b站的task就是uid，其他来源的task要自己定义
     # video_title: str  # 视频标题
     video_url: str  # 视频链接
     video_id: str  # bvid
     source_command: str  # 用户发送的原始指令（eg. "总结一下" "问一下：xxxxxxx"）
+    # mission: bool = Field(default=False)  # 用户AT还是自发检测的标志
     command_params: Optional[AskAICommandParams] = None  # 用户原始指令经解析后的参数
-    source_extra_attr: Optional[
-        BiliAtSpecialAttributes
-    ] = None  # 在获取到task时附加的其他原始参数（比如评论id等）
-    process_result: Optional[
-        Union[SummarizeAiResponse, AskAIResponse, str, dict]
-    ] = None  # 最终处理结果，根据不同的处理链会有不同的结果 （dict的存在是一个历史遗留问题，不想解决了，再拉一坨）
+    source_extra_attr: Optional[BiliAtSpecialAttributes] = None  # 在获取到task时附加的其他原始参数（比如评论id等）
+    process_result: Optional[Union[SummarizeAiResponse, AskAIResponse, str, dict]] = (
+        None  # 最终处理结果，根据不同的处理链会有不同的结果 （dict的存在是一个历史遗留问题，不想解决了，再拉一坨）
+    )
     subtitle: Optional[str] = None  # 该视频字幕，与之前不同的是，现在不管是什么方式得到的字幕都要保存下来
-    process_stage: Optional[ProcessStages] = Field(
-        default=ProcessStages.PREPROCESS
-    )  # 视频处理阶段
+    process_stage: Optional[ProcessStages] = Field(default=ProcessStages.PREPROCESS)  # 视频处理阶段
     chain: Optional[Chains] = None  # 视频处理事件，即对应的处理链
     uuid: Optional[str] = Field(default=str(uuid.uuid4()))  # 该任务的uuid4
     gmt_create: int = Field(default=int(time.time()))  # 任务创建时间戳，默认为当前时间戳

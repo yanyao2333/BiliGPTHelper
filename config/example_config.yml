@@ -41,6 +41,8 @@ LLMs:
     api_secret: '' # 你的api_secret
     domain: 'generalv3.5' # 要与spark_url对应
 
+bilibili_self:
+  nickname: ''
 
 bilibili_cookie: # https://nemo2011.github.io/bilibili-api/#/get-credential 获取cookie 下面五个值都要填
   SESSDATA: ''
@@ -67,5 +69,7 @@ storage_settings:
   task_status_records: /data/records.json # 用于记录任务状态，如果更改要映射出来，不能留空
   queue_save_dir: /data/queue.json # 用于保存未完成的队列信息，下次运行时恢复
   temp_dir: /data/temp # 主要用于下载视频音频生成字幕，如果更改要映射出来
+  up_video_cache: ./data/video_cache.json
+  up_file: ./data/up.json
 
 debug_mode: true # 是否开启debug模式，开启后会打印更多日志，建议开启，以便于查找bug

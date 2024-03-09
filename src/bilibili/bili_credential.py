@@ -65,7 +65,7 @@ class BiliCredential(Credential):
         self.sched.add_job(
             self._check_refresh,
             trigger="interval",
-            seconds=600,
+            hours=12,
             id="check_refresh",
             max_instances=3,
             next_run_time=datetime.now(),

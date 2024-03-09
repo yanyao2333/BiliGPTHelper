@@ -9,7 +9,7 @@ from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
 from src.bilibili.bili_video import BiliVideo
-from src.models.task import BiliGPTTask, SummarizeAiResponse, AskAIResponse
+from src.models.task import AskAIResponse, BiliGPTTask, SummarizeAiResponse
 from src.utils.callback import chain_callback
 from src.utils.exceptions import RiskControlFindError
 from src.utils.logging import LOGGER
@@ -94,33 +94,40 @@ class BiliComment:
         comment_str = ""
         for _comment in selected_comment_list:
             _comment: dict
-            comment_str += (
-                f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
-            )
+            comment_str += f"【{_comment['member']['uname']}】：{_comment['content']['message']}\n"
         _LOGGER.debug("拼接评论成功")
         return comment_str
 
     @staticmethod
     def build_reply_content(
-        response: Union[SummarizeAiResponse, AskAIResponse, str], user: str
+        response: Union[SummarizeAiResponse, AskAIResponse, str], user: str, source_type: str
     ) -> str:
         """
         构建回复内容
-
+        :param source_type: task来源
         :param user: 用户名
         :param response: AI响应内容
         :return: 回复内容字符串
         """
-        if isinstance(response, SummarizeAiResponse):
-            return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【此次评论由 @{user} 邀请回答】"
-        elif isinstance(response, AskAIResponse):
-            return (
-                f"【回答】{response.answer}\n【自我评分】{response.score}\n【此次评论由 @{user} 邀请回答】"
-            )
-        elif isinstance(response, str):
-            return response + f"\n【此次评论由 @{user} 邀请回答】"
-        else:
-            return f"程序内部错误：无法识别的回复类型{type(response)}\n【此次评论由 @{user} 邀请回答】"
+        if source_type == "bili_up":
+            if isinstance(response, SummarizeAiResponse):
+                return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
+            elif isinstance(response, str):
+                return (
+                    response
+                    + "\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
+                )
+            else:
+                return f"程序内部错误：无法识别的回复类型{type(response)}\n--🍺🍺🍺我是T-250,此次评论由我自己发起。你的点赞、关注和At可以向我提供升级的经验，助我升级到T-1000。"
+        elif source_type == "bili_comment":
+            if isinstance(response, SummarizeAiResponse):
+                return f"【视频总结】{response.summary}\n【视频评分】{response.score}\n【AI的思考】{response.thinking}\n【👉此次评论由 @{user} 邀请回答】"
+            elif isinstance(response, AskAIResponse):
+                return f"【回答】{response.answer}\n【自我评分】{response.score}\n【👉此次评论由 @{user} 邀请回答】"
+            elif isinstance(response, str):
+                return response + f"\n【👉此次评论由 @{user} 邀请回答】"
+            else:
+                return f"程序内部错误：无法识别的回复类型{type(response)}\n【👉此次评论由 @{user} 邀请回答】"
 
     @tenacity.retry(
         retry=tenacity.retry_if_exception_type(Exception),
@@ -139,9 +146,7 @@ class BiliComment:
                     if data is None:
                         data: Optional[BiliGPTTask] = await self.comment_queue.get()
                         _LOGGER.debug("获取到新的评论任务，开始处理")
-                    video_obj, _type = await BiliVideo(
-                        credential=self.credential, url=data.video_url
-                    ).get_video_obj()
+                    video_obj, _type = await BiliVideo(credential=self.credential, url=data.video_url).get_video_obj()
                     video_obj: video.Video
                     aid = video_obj.get_aid()
                     if str(aid).startswith("av"):
@@ -149,7 +154,8 @@ class BiliComment:
                     oid = int(aid)
                     # root = data.source_extra_attr.source_id
                     user = data.raw_task_data["user"]["nickname"]
-                    text = BiliComment.build_reply_content(data.process_result, user)
+                    source_type = data.source_type
+                    text = BiliComment.build_reply_content(data.process_result, user, source_type)
                     resp = await comment.send_comment(
                         oid=oid,
                         credential=self.credential,
@@ -158,7 +164,7 @@ class BiliComment:
                     )
                     if not resp["need_captcha"] and resp["success_toast"] == "发送成功":
                         _LOGGER.debug(resp)
-                        _LOGGER.debug("发送评论成功，休息30秒")
+                        _LOGGER.info("发送评论成功，休息30秒")
                         await asyncio.sleep(30)
                         break  # 评论成功，退出当前任务的重试循环
                     _LOGGER.warning("发送评论失败，大概率被风控了，咱们歇会儿再试吧")

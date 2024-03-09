@@ -1,4 +1,6 @@
 """监听bilibili平台的私信、at消息"""
+
+import asyncio
 import os
 import re
 import time
@@ -7,7 +9,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from bilibili_api import session
+from bilibili_api import session, user
 from injector import inject
 
 from src.bilibili.bili_credential import BiliCredential
@@ -17,6 +19,7 @@ from src.models.config import Config
 from src.models.task import BiliAtSpecialAttributes, BiliGPTTask
 from src.utils.logging import LOGGER
 from src.utils.queue_manager import QueueManager
+from src.utils.up_video_cache import get_up_file, load_cache, set_cache
 
 _LOGGER = LOGGER.bind(name="bilibili-listener")
 
@@ -41,6 +44,12 @@ class Listen:
         self.user_sessions = {}  # 存储用户状态和视频信息
         self.config = config
         self.chain_router = chain_router
+        # 以下是自动查询视频更新的参数
+        # self.cache_path = './data/video_cache.json'
+        # self.up_file_path = './data/up.json'
+        self.chain_router = chain_router
+        self.uids = {}
+        self.video_cache = {}
 
     async def listen_at(self):
         # global run_time
@@ -68,9 +77,7 @@ class Listen:
         new_items = []
         for item in reversed(data["items"]):
             if item["at_time"] > self.last_at_time:
-                _LOGGER.debug(
-                    f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列"
-                )
+                _LOGGER.debug(f"at_time{item['at_time']}大于last_at_time{self.last_at_time}，放入新消息队列")
                 # item["user"] = data["items"]["user"]
                 new_items.append(item)
         if len(new_items) == 0:
@@ -86,6 +93,7 @@ class Listen:
         self.last_at_time = data["items"][0]["at_time"]
 
     async def build_task_from_at_msg(self, msg: dict) -> BiliGPTTask | None:
+        # print(msg)
         try:
             event = deepcopy(msg)
             if msg["item"]["type"] != "reply" or msg["item"]["business_id"] != 1:
@@ -96,15 +104,12 @@ class Listen:
                 return None
             event["source_type"] = "bili_comment"
             event["raw_task_data"] = deepcopy(msg)
-            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(
-                event["item"]
-            )
+            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(event["item"])
             event["sender_id"] = str(event["user"]["mid"])
             event["video_url"] = event["item"]["uri"]
             event["source_command"] = event["item"]["source_content"]
-            event["video_id"] = await BiliVideo(
-                credential=self.credential, url=event["item"]["uri"]
-            ).bvid
+            # event["mission"] = False
+            event["video_id"] = await BiliVideo(credential=self.credential, url=event["item"]["uri"]).bvid
             task_metadata = BiliGPTTask.model_validate(event)
         except Exception:
             traceback.print_exc()
@@ -125,6 +130,103 @@ class Listen:
         # self.sched.start()
         _LOGGER.info("[定时任务]侦听at消息定时任务注册成功， 每20秒检查一次")
 
+    def start_video_mission(self):
+        self.sched.add_job(
+            self.async_video_list_mission,
+            trigger="interval",
+            minutes=60,  # minutes=60,
+            id="video_list_mission",
+            max_instances=3,
+            next_run_time=datetime.now(),
+        )
+        _LOGGER.info("[定时任务]侦听up视频更新任务注册成功， 每60分钟检查一次")
+
+    async def async_video_list_mission(self):
+        _LOGGER.info("开始执行获取UP的最新视频")
+        self.video_cache = load_cache(self.config.storage_settings.up_video_cache)
+        self.uids = get_up_file(self.config.storage_settings.up_file)
+        for item in self.uids:
+            u = user.User(uid=item["uid"])
+            try:
+                media_list = await u.get_media_list(ps=1, desc=True)
+            except Exception:
+                traceback.print_exc()
+                _LOGGER.error(f"在获取 uid{item} 的视频列表时出错！")
+                return None
+            media = media_list["media_list"][0]
+            bv_id = media["bv_id"]
+            _LOGGER.info(f"当前视频的bvid：{bv_id}")
+            oid = media["id"]
+            _LOGGER.info(f"当前视频的oid：{oid}")
+            if str(item["uid"]) in self.video_cache:
+                cache_bvid = self.video_cache[str(item["uid"])]["bv_id"]
+                _LOGGER.info(f"缓存文件中的bvid：{cache_bvid}")
+                if cache_bvid != bv_id:
+                    _LOGGER.info(f"up有视频更新，视频信息为：\n 作者：{item['username']} 标题：{media['title']}")
+                    # 将视频信息传递给消息队列
+                    task_metadata = await self.build_task_from_at_mission(media)
+                    if task_metadata is None:
+                        continue
+                    await self.chain_router.dispatch_a_task(task_metadata)
+                    set_cache(
+                        self.config.storage_settings.up_video_cache,
+                        self.video_cache,
+                        {"bv_id": bv_id, "oid": oid},
+                        str(item["uid"]),
+                    )
+
+                else:
+                    _LOGGER.info("up没有视频更新")
+
+            else:
+                _LOGGER.info("缓存文件为空，第一次写入数据")
+                # self.set_cache({'bv_id': media, 'oid': oid}, str(item['uid']))
+            _LOGGER.info("休息20秒")
+            await asyncio.sleep(20)
+
+    async def build_task_from_at_mission(self, msg: dict) -> BiliGPTTask | None:
+        # print(msg)
+        try:
+            # event = deepcopy(msg)
+            event: dict = {}
+            event["source_type"] = "bili_up"
+            event["raw_task_data"] = {
+                "user": {
+                    "mid": self.config.bilibili_cookie.dedeuserid,
+                    "nickname": self.config.bilibili_self.nickname,
+                }
+            }
+            event["source_extra_attr"] = BiliAtSpecialAttributes.model_validate(
+                {
+                    "source_id": msg["id"],
+                    "target_id": 0,
+                    "root_id": 0,
+                    "native_uri": msg["link"],
+                    "at_details": [
+                        {
+                            "mid": self.config.bilibili_cookie.dedeuserid,
+                            "fans": 0,
+                            "nickname": self.config.bilibili_self.nickname,
+                            "avatar": "http://i1.hdslb.com/bfs/face/d21cf99c96dfdca5e38106c00eb338dd150b4b65.jpg",
+                            "mid_link": "",
+                            "follow": False,
+                        }
+                    ],
+                }
+            )
+            event["sender_id"] = self.config.bilibili_cookie.dedeuserid
+            event["video_url"] = msg["short_link"]
+            event["source_command"] = f"@{self.config.bilibili_self.nickname} 总结一下"
+            event["video_id"] = msg["bv_id"]
+            # event["mission"] = True
+            task_metadata = BiliGPTTask.model_validate(event)
+        except Exception:
+            traceback.print_exc()
+            _LOGGER.error("在验证任务数据结构时出现错误，跳过处理！")
+            return None
+
+        return task_metadata
+
     async def build_task_from_private_msg(self, msg: dict) -> BiliGPTTask | None:
         try:
             event = deepcopy(msg)
@@ -137,6 +239,7 @@ class Listen:
             event["video_url"] = uri
             event["source_command"] = event["text_event"]["content"][12:]  # 去除掉bv号
             event["video_id"] = bvid
+            # event["mission"] = False
             del event["video_event"]
             del event["text_event"]
             del event["status"]
@@ -149,22 +252,16 @@ class Listen:
         return task_metadata
 
     async def handle_video(self, user_id, event):
-        _session = self.user_sessions.get(
-            user_id, {"status": "idle", "text_event": {}, "video_event": {}}
-        )
+        _session = self.user_sessions.get(user_id, {"status": "idle", "text_event": {}, "video_event": {}})
         match _session["status"]:
             case "idle" | "waiting_for_keyword":
                 _session["status"] = "waiting_for_keyword"
                 _session["video_event"] = event
-                _session["video_event"]["content"] = _session["video_event"][
-                    "content"
-                ].get_bvid()
+                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
 
             case "waiting_for_video":
                 _session["video_event"] = event
-                _session["video_event"]["content"] = _session["video_event"][
-                    "content"
-                ].get_bvid()
+                _session["video_event"]["content"] = _session["video_event"]["content"].get_bvid()
                 at_items = await self.build_task_from_private_msg(_session)
                 if at_items is None:
                     return
@@ -203,9 +300,7 @@ class Listen:
                 #     keyword = p1
                 bvid = event["content"][:12]
                 if not re.search("^BV[a-zA-Z0-9]{10}$", bvid):
-                    _LOGGER.warning(
-                        f"从消息‘{event['content']}’中提取bv号失败！你是不是没把bv号放在消息最前面？！"
-                    )
+                    _LOGGER.warning(f"从消息‘{event['content']}’中提取bv号失败！你是不是没把bv号放在消息最前面？！")
                     return
                 if _session["status"] in (
                     "waiting_for_keyword",
@@ -274,3 +369,20 @@ class Listen:
     def close_private_listen(self):
         self.sess.close()
         _LOGGER.info("私聊侦听已关闭")
+
+    # def get_cache(self):
+    #     with open(self.cache_path, 'r', encoding="utf-8") as f:
+    #         cache = json.loads(f.read())
+    #     return cache
+    #
+    # def set_cache(self, data: dict, key: str):
+    #     if key not in self.video_cache:
+    #         self.video_cache[key] = {}
+    #     self.video_cache[key] = data
+    #     with open(self.cache_path, "w") as file:
+    #         file.write(json.dumps(self.video_cache, ensure_ascii=False, indent=4))
+
+    # def get_up_file(self):
+    #     with open(self.up_file_path, 'r', encoding="utf-8") as f:
+    #         up_list = json.loads(f.read())
+    #     return up_list['all_area']

@@ -17,8 +17,6 @@ def chain_callback(retry_state):
 def scheduler_error_callback(event):
     match event.exception.__class__.__name__:
         case "ClientOSError":
-            _LOGGER.warning(
-                f"捕获到异常：{event.exception}    可能是新版bilibili_api库的问题，接收消息没问题就不用管"
-            )
+            _LOGGER.warning(f"捕获到异常：{event.exception}    可能是新版bilibili_api库的问题，接收消息没问题就不用管")
         case _:
             return
