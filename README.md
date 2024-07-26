@@ -1,3 +1,5 @@
+> [!CAUTION]
+> 你b已经自己搞了ai课代表，这个项目没啥大用了，所以不再更新
 <h2 align="center">✨Bilibili GPT Bot✨</h2>
 <h5 align="center">把ChatGPT放到B站里！更高效、快速的了解视频内容</h5>
 
